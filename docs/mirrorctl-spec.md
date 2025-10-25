@@ -40,6 +40,7 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
 - 言語: Python（`argparse` + `subprocess` + `json`) を想定。
 - Pi Zero への SSH: `paramiko` もしくは `ssh` コマンド（公開鍵認証前提）。
 - 設定ファイル: `/etc/mirrorctl/config.json` に以下を保持。
+  - リポジトリにはサンプルとして `config/mirrorctl-config.sample.json` を配置（デプロイ時に `/etc/mirrorctl/config.json` へ展開）。
   ```json
   {
     "pi_zero_host": "handheld.local",
@@ -56,3 +57,7 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
 - `mirror-compare.sh` の仕様書と連携フォーマット（JSON）確定。
 - Pi Zero 側の設定テンプレートを `docs/implementation-plan.md` に追記。
 - CI/自動テスト: ループバック環境で `mirrorctl enable` → `status` → `disable` の動作確認手順を用意。
+
+### 実装メモ（2025-10-25 更新）
+- `scripts/mirrorctl.py` に CLI 骨格を追加。`status` コマンドはローカル状態確認のみ対応済みで、`enable/disable/rotate` は今後実装予定。
+- 設定テンプレートは `config/mirrorctl-config.sample.json` を参照。
