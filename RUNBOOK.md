@@ -56,12 +56,14 @@ sudo ln -sf /usr/local/toolmaster/bin/tool-dist-sync.sh /usr/local/bin/tool-dist
 sudo ln -sf /usr/local/toolmaster/bin/tool-backup-export.sh /usr/local/bin/tool-backup-export.sh
 sudo ln -sf /usr/local/toolmaster/bin/tool-snapshot.sh /usr/local/bin/tool-snapshot.sh
 sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-usb.sh
+sudo install -m 755 scripts/mirrorctl.py /usr/local/bin/mirrorctl
 ```
 ### 3.4 Docker/PostgreSQL セットアップ
 
 **前提**
 - Docker/Compose と `postgresql-client` がインストール済みで `docker` サービスが起動している。
 - リポジトリは `/srv/rpi-server` に配置し、`.env` は `POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB` を本番値へ更新済み。
+- `docker-compose.yml` の `postgres` サービスは `ports: ["127.0.0.1:5432:5432"]` でホストへ公開されている（`tool-snapshot.sh` が `localhost` へ接続するため必須）。
 - SSD（例: `/srv/rpi-server`）が bind mount されており、`/srv/rpi-server/snapshots` へ書き込み可能。
 
 **セットアップ手順**
@@ -154,6 +156,56 @@ sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-us
 - `/srv/rpi-server/snapshots/latest/db/pg_dump.sql` のタイムスタンプとサイズを確認。
 - USB （`/media/TM-BACKUP` 等）に生成された `*_full.tar.zst` のサイズを記録し、保管ログへ転記。
 
+### 3.5 mirrorctl 運用（ミラー送信制御）
+
+**前提**
+- 設定ファイル `/etc/mirrorctl/config.json` を `config/mirrorctl-config.sample.json` から展開済みで、Pi Zero への SSH 鍵認証が完了している。
+- `mirror-compare.service` / `mirror-compare.timer` はシステムに登録済み。
+- ログディレクトリ `/srv/rpi-server/logs/` とステータスディレクトリ `/var/lib/mirror/` が作成済み。
+
+1. 状態確認  
+   **コマンド**
+   ```bash
+   mirrorctl status
+   ```
+   **想定結果**: タイマーとサービスの `active`/`enabled`、OK カウンタ、最新 `mirror_status.log` / `mirror_diff.log` の要約が表示される。  
+   **エラー時の確認**: `設定ファイルが見つかりません` → `/etc/mirrorctl/config.json` の権限・パスを確認。`unsupported` 表示の場合は `systemctl` が利用できない環境。
+
+2. ミラー有効化  
+   **コマンド**
+   ```bash
+   sudo mirrorctl enable
+   ```
+   **想定結果**: Pi Zero 側設定が `mirror_mode=true` に更新され、`mirror-compare.timer` が `enabled/active` へ変化。`mirrorctl status` で反映を確認。  
+   **エラー時の確認**: `SSH 接続に失敗` → Pi Zero のホスト名/IP・鍵配置を確認。`systemctl` 関連エラー → タイマーが未登録かサービス名が不一致。  
+   **ロールバック**: `sudo mirrorctl disable` を実行し、Pi Zero 設定を戻す。
+
+3. ミラー停止  
+   **コマンド**
+   ```bash
+   sudo mirrorctl disable
+   ```
+   **想定結果**: Pi Zero 設定が `mirror_mode=false` に戻り、タイマーが `disabled/inactive`。ログ末尾に停止記録が残る。  
+   **エラー時の確認**: Pi Zero 側ファイル権限で失敗する場合は `sudo` 付与を検討。タイマー無効化に失敗した場合は `sudo systemctl disable --now mirror-compare.timer` を手動実行。
+
+4. ログローテーション  
+   **コマンド**
+   ```bash
+   sudo mirrorctl rotate
+   ```
+   **想定結果**: `mirror_requests.log` / `mirror_diff.log` が日付付き `.gz` に退避され、30 日より古いファイルが削除される。  
+   **エラー時の確認**: ログディレクトリ権限不足 → `/srv/rpi-server/logs/` の所有者を確認。
+
+**追加モニタリング**
+- `journalctl -t mirrorctl -n 50` で mirrorctl 実行ログを確認。
+- `journalctl -u mirror-compare.timer` / `mirror-compare.service` で定期比較の実行有無を確認。
+- OK カウンタ: `sudo cat /var/lib/mirror/ok_counter`
+
+**ミラー停止時のロールバック**
+1. `sudo mirrorctl disable`
+2. `sudo systemctl status mirror-compare.timer` で停止済みを確認。
+3. Pi Zero 側 `/etc/onsitelogistics/config.json` を確認し、`mirror_endpoint` が削除されていることを確認。
+
 ## 4. ロールバック手順
 1. `sudo systemctl disable tool-snapshot.timer`
 2. `sudo rm /etc/systemd/system/usb-*.service /etc/systemd/system/tool-snapshot.*`
@@ -168,6 +220,7 @@ sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-us
 | USB 自動処理が動かない | `journalctl -u usb-ingest@*` などでエラー確認 | スクリプト配置とラベル/role を再確認。 `/usr/local/lib/toolmaster-usb.sh` の存在を確認 |
 | スナップショットが生成されない | `systemctl status tool-snapshot.timer`、`journalctl -u tool-snapshot.service` | タイマーが有効か、`/srv/rpi-server/snapshots` の権限確認 |
 | バックアップ USB にアーカイブが無い | `/mnt/backup` のマウント・残容量確認 | アーカイブの手動作成: `sudo tool-backup-export.sh --device /dev/sdX1` |
+| ミラー比較が実行されない / 差分が解消しない | `mirrorctl status`、`journalctl -u mirror-compare.service` | `mirrorctl enable` で再有効化。Pi Zero 設定 (`mirror_mode`, `mirror_endpoint`) を確認し、差分ログ (`mirror_diff.log`) を解析 |
 
 ## 6. 連絡フロー
 - 1 次対応: システム担当（RaspberryPiServer 運用者）
