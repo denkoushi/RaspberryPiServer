@@ -47,7 +47,14 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
     "ssh_user": "pi",
     "config_path": "/etc/onsitelogistics/config.json",
     "status_dir": "/var/lib/mirror",
-    "log_dir": "/srv/rpi-server/logs"
+    "log_dir": "/srv/rpi-server/logs",
+    "ok_counter_file": "/var/lib/mirror/ok_counter",
+    "mirror_timer": "mirror-compare.timer",
+    "mirror_service": "mirror-compare.service",
+    "pi_zero_service": "onsite-handheld.service",
+    "mirror_endpoint": "http://raspi-server.local:8501/api/v1/scans",
+    "primary_endpoint": "http://window-a.local:8501/api/v1/scans",
+    "log_retention_days": 30
   }
   ```
 - OK カウンタ: `/var/lib/mirror/ok_counter` に整数値を保持。
@@ -59,5 +66,5 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
 - CI/自動テスト: ループバック環境で `mirrorctl enable` → `status` → `disable` の動作確認手順を用意。
 
 ### 実装メモ（2025-10-25 更新）
-- `scripts/mirrorctl.py` に CLI 骨格を追加。`status` コマンドはローカル状態確認のみ対応済みで、`enable/disable/rotate` は今後実装予定。
-- 設定テンプレートは `config/mirrorctl-config.sample.json` を参照。
+- `scripts/mirrorctl.py` で `status/enable/disable/rotate` を実装。Pi Zero 設定のバックアップ→書き換え、SSH 経由のサービス再起動、mirror-compare.timer の制御、ログローテーションまで対応。
+- 設定テンプレートは `config/mirrorctl-config.sample.json` を参照し、`mirror_endpoint` や `pi_zero_service`、ログ保持日数などを調整可能。

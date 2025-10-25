@@ -6,5 +6,9 @@
   "log_dir": "/srv/rpi-server/logs",
   "ok_counter_file": "/var/lib/mirror/ok_counter",
   "mirror_timer": "mirror-compare.timer",
-  "mirror_service": "mirror-compare.service"
+  "mirror_service": "mirror-compare.service",
+  "pi_zero_service": "onsite-handheld.service",
+  "mirror_endpoint": "http://raspi-server.local:8501/api/v1/scans",
+  "primary_endpoint": "http://window-a.local:8501/api/v1/scans",
+  "log_retention_days": 30
 }
