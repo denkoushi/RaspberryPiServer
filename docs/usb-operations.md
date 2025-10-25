@@ -169,4 +169,133 @@ WantedBy=multi-user.target
 - 失敗時は exit code ≠ 0 を返し、systemd が `StartLimitBurst` に達したら `OnFailure` で通知用スクリプト（LED 点滅・ログ出力など）を呼び出す。
 - USB メモリの不整合（シグネチャ不一致、容量不足など）はスクリプト内で `usb_guard.log` に記録し、ユーザーに交換を促す。
 
+## 8. スクリプト仕様とテスト
+
+### 8.1 共通ライブラリ `lib/toolmaster-usb.sh`
+
+- 提供関数
+  - `usb_validate_role <mountpoint> <expected_role>`: ラベルとシグネチャファイルの両方を検証し、NG 時はエラーコードを返す。
+  - `usb_mount_device <devname>`: `udisksctl` などを利用して安全にマウントし、マウントポイントを返却。
+  - `usb_unmount <mountpoint>`: 同上。エラー時はリトライし、最終的に失敗した場合はログに記録。
+  - `usb_log <level> <message>`: ログファイルと journal へ二重出力する。
+- 環境変数
+  - `USB_LOG_DIR=/srv/rpi-server/logs`
+  - `USB_MAX_RETRY=3`
+- テスト項目
+  - 正常マウント・アンマウント
+  - シグネチャ不一致時にエラーコード 2 を返す
+  - ログ出力フォーマット（JSON or TSV）を固定し、`jq` / `cut` で解析できること
+
+### 8.2 `tool-ingest-sync.sh`
+
+- 引数: `--device /dev/sdX`（udev 経由）、`--dry-run`、`--force`
+- 処理概要
+  1. `usb_validate_role` で `INGEST` を確認
+  2. CSV / PDF を `rsync --ignore-existing` で staging 領域へコピー
+  3. `meta.json` と `stat` のタイムスタンプで新旧比較
+  4. サーバー側データを更新（`/srv/rpi-server/master/`, `/srv/rpi-server/docviewer/`）
+  5. サーバー側最新データを USB メモリへ書き戻し
+  6. ログへ成功／失敗を記録し、マウント解除
+- テストケース
+  - 正常系: 新しい CSV を持ち込んでサーバーへ反映
+  - 古いデータ: USB メモリが古い場合はサーバー内容が優先される
+  - CSV 欠落: `tool_master.csv` がない場合はエラーとしてログへ警告
+  - `--dry-run`: 変更せず差分のみ表示
+
+### 8.3 `tool-dist-export.sh`
+
+- 引数: `--target /media/TOOLMASTER-DIST`
+- 処理概要
+  - サーバー側の公式データを一時フォルダへコピーし、`rsync --delete` で USB メモリへ反映
+  - オプションで `--include-pdf`, `--include-master` を制御可能
+- テストケース
+  - 初回エクスポートで USB メモリが空の状態
+  - 既存ファイルとの差分更新
+  - 容量不足時の中断確認
+
+### 8.4 `tool-dist-sync.sh`（端末側）
+
+- 処理概要
+  - `DIST` シグネチャ検証後、USB メモリ → 端末ローカルへコピー
+  - コピー先は `/opt/toolmaster/data/` 等。終了後にアプリへ HUP/REST API でリロード通知
+- テストケース
+  - 正常コピー（PDF・CSV 共に更新）
+  - コピー途中で USB メモリが抜かれた場合のハンドリング（途中で中断し、再実行で回復できること）
+  - 書込み禁止（USB へは書かないこと）
+
+### 8.5 `tool-backup-export.sh`
+
+- 処理概要
+  - 最新スナップショットを選択
+  - `tar --zstd -cf` で圧縮アーカイブを生成
+  - USB メモリへコピーし、4 世代を超えた分は削除
+- テストケース
+  - 圧縮成功時にログへサイズ・処理時間を記録
+  - 圧縮失敗（ディスクフル等）でエラーハンドリング
+  - `--dry-run` でサイズ見積のみ実行
+
+### 8.6 `tool-snapshot.sh`
+
+- 処理概要
+  - PostgreSQL ダンプ（`pg_dump`）とファイル同期（`rsync`）を組み合わせた日次スナップショットを `/srv/rpi-server/snapshots/YYYY-MM-DD/` に生成
+  - 7 世代古いディレクトリを削除
+- テストケース
+  - 通常スナップショット作成
+  - DB 接続失敗時のリトライ、`pg_dump` エラー
+  - 古い世代削除（保持数の確認）
+
+### 8.7 自動テスト戦略
+
+- シェルスクリプト用に `bats-core` を導入し、マウント／検証／コピーの主要関数をユニットテスト
+- 仮想 USB メモリ（`tmpfs` / ループバック）を用いたインテグレーションテストを GitHub Actions or ローカルスクリプトで実施
+- テスト結果は `/srv/rpi-server/logs/test-report/` に保存し、定期的に棚卸しする
+
+## 9. BACKUP 用 USB メモリ初期化とローテーション
+
+### 9.1 初期化手順
+
+1. 管理者端末で USB メモリを接続し、デバイス名を確認。
+2. パーティション作成（単一パーティション、ext4 推奨）。
+   ```bash
+   sudo wipefs -a /dev/sdX
+   sudo parted /dev/sdX --script mklabel gpt
+   sudo parted /dev/sdX --script mkpart primary ext4 0% 100%
+   sudo mkfs.ext4 -L TOOLMASTER-BACKUP /dev/sdX1
+   ```
+3. シグネチャディレクトリを配置。
+   ```bash
+   sudo mount /dev/sdX1 /mnt
+   sudo mkdir -p /mnt/.toolmaster
+   echo "BACKUP" | sudo tee /mnt/.toolmaster/role
+   sudo umount /mnt
+   ```
+4. `docs/requirements.md` に記載した容量要件（64 GB 以上）を満たしているか確認。
+
+### 9.2 ローテーションルール
+
+- バックアップアーカイブは `YYYY-MM-DD_full.tar.zst` のファイル名で保存。
+- 保持数は 4 世代（約 4 週間）とし、保存後に `find` で古いファイルを削除。
+  ```bash
+  find /media/TOOLMASTER-BACKUP -maxdepth 1 -name "*_full.tar.zst" \
+      -printf "%T@ %p\n" | sort -n | head -n -4 | cut -d' ' -f2- | xargs -r rm -f
+  ```
+- コピー完了後は `/srv/rpi-server/logs/backup.log` に下記のような記録を残す。
+  ```json
+  {"timestamp":"2025-02-20T02:35:00+09:00","archive":"2025-02-20_full.tar.zst","size_bytes":8123456789,"duration_ms":52340,"status":"success"}
+  ```
+
+### 9.3 リストア検証
+
+- 月次で 1 世代を選び、テスト用ディレクトリに展開して整合性を確認。
+  ```bash
+  mkdir -p /srv/rpi-server/tmp-restore
+  sudo tar --zstd -xf /media/TOOLMASTER-BACKUP/2025-02-20_full.tar.zst -C /srv/rpi-server/tmp-restore
+  ```
+- PostgreSQL ダンプのリストアテスト、マスターデータ同期テストを実施し、結果を `backup.log` に追記。
+
+### 9.4 エスカレーション
+
+- バックアップ失敗が 3 回連続した場合は運用担当へ連絡し、USB メモリ交換や外部ストレージ（HDD 等）での代替手段を検討。
+- 予備のバックアップメディアを 2 本準備し、週次でローテーション（A/B 運用）する案も検討対象とする。
+
 この手順書は RUNBOOK 整備時に必要箇所を統合・参照すること。
