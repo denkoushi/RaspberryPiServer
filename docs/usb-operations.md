@@ -252,7 +252,20 @@ WantedBy=multi-user.target
 - 仮想 USB メモリ（`tmpfs` / ループバック）を用いたインテグレーションテストを GitHub Actions or ローカルスクリプトで実施
 - テスト結果は `/srv/rpi-server/logs/test-report/` に保存し、定期的に棚卸しする
 
-### 8.8 主要スクリプトと環境変数
+### 8.8 テスト用仮想 USB 環境 (`scripts/setup_usb_tests.sh`)
+
+ラズパイ上で物理 USB を使わずに検証する場合は、以下のヘルパースクリプトで 3 種類の仮想 USB イメージ（INGEST/DIST/BACKUP）を作成できる。
+
+```bash
+cd ~/RaspberryPiServer
+./scripts/setup_usb_tests.sh /home/pi/usb-test
+```
+
+- `losetup` が使える Linux 環境を前提とする（macOS では不可）。
+- 生成後は `/home/pi/usb-test/*.img` にイメージが作成され、`TM-INGEST` / `TM-DIST` / `TM-BACKUP` ラベルを持つループデバイスが割り当てられる。
+- 不要になったら `sudo losetup -d /dev/loopX` とイメージ削除で後片付けする。
+
+### 8.9 主要スクリプトと環境変数
 
 | スクリプト | 主な用途 | 既定ディレクトリ / 環境変数 |
 | --- | --- | --- |
