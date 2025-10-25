@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence
@@ -113,9 +114,20 @@ def backup_remote_config(host: str, user: str, config_path: str) -> None:
 
 def write_remote_config(host: str, user: str, config_path: str, content: Dict[str, Any]) -> None:
     payload = json.dumps(content, ensure_ascii=False, indent=2) + "\n"
-    result = ssh_command(host, user, f"tee {config_path}", input_text=payload, sudo=True)
-    if result.returncode != 0:
-        raise MirrorCtlError(f"Pi Zero 設定の書き込みに失敗しました: {result.stderr.strip()}")
+    tmp_path = f"/tmp/mirrorctl_config_{int(time.time())}.json"
+
+    create_result = ssh_command(host, user, f"cat > {tmp_path}", input_text=payload)
+    if create_result.returncode != 0:
+        raise MirrorCtlError(f"Pi Zero 設定の一時ファイル作成に失敗しました: {create_result.stderr.strip()}")
+
+    move_result = ssh_command(host, user, f"mv {tmp_path} {config_path}", sudo=True)
+    if move_result.returncode != 0:
+        ssh_command(host, user, f"rm -f {tmp_path}")
+        raise MirrorCtlError(f"Pi Zero 設定の書き込みに失敗しました: {move_result.stderr.strip()}")
+
+    chmod_result = ssh_command(host, user, f"chmod 644 {config_path}", sudo=True)
+    if chmod_result.returncode != 0:
+        raise MirrorCtlError(f"Pi Zero 設定ファイルの権限設定に失敗しました: {chmod_result.stderr.strip()}")
 
 
 def restart_remote_service(host: str, user: str, service: str) -> None:
