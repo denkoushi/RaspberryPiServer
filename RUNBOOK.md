@@ -58,21 +58,101 @@ sudo ln -sf /usr/local/toolmaster/bin/tool-snapshot.sh /usr/local/bin/tool-snaps
 sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-usb.sh
 ```
 ### 3.4 Docker/PostgreSQL セットアップ
-```bash
-# 依存パッケージ
-sudo apt install -y docker.io docker-compose-plugin postgresql-client
 
-# docker-compose.yml と .env の配置確認（例）
-cd ~/RaspberryPiServer
-cp .env.example .env  # 必要に応じて編集
+**前提**
+- Docker/Compose と `postgresql-client` がインストール済みで `docker` サービスが起動している。
+- リポジトリは `/srv/rpi-server` に配置し、`.env` は `POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB` を本番値へ更新済み。
+- SSD（例: `/srv/rpi-server`）が bind mount されており、`/srv/rpi-server/snapshots` へ書き込み可能。
 
-# Postgres コンテナ起動
-sudo docker compose up -d
-sudo docker compose ps
+**セットアップ手順**
 
-# バックアップ連携（既存スナップショットと統合）
-# tool-backup-export.sh が /srv/rpi-server/snapshots を tar + zstd で退避
-```
+1. 依存パッケージ導入  
+   **コマンド**
+   ```bash
+   sudo apt install -y docker.io docker-compose-plugin postgresql-client
+   ```
+   **想定結果**: `docker`, `docker compose`, `pg_dump` が利用可能になる。既に導入済みの場合は `0 upgraded` 等が表示される。  
+   **エラー時の確認**: 失敗時は `apt` のログを確認し、必要に応じてパッケージキャッシュを更新する（`sudo apt update`）。
+
+2. `.env` の配置  
+   **コマンド**
+   ```bash
+   cd /srv/rpi-server
+   cp .env.example .env
+   ```
+   **想定結果**: `.env` が生成され、`.env.example` と同じ値で初期化される。編集後は `chmod 600 .env` を推奨。  
+   **エラー時の確認**: `.env` が既に存在する場合は上書きせず、中身を手動で更新する。
+
+3. コンテナ起動  
+   **コマンド**
+   ```bash
+   sudo docker compose up -d
+   ```
+   **想定結果**: `postgres` コンテナがバックグラウンド起動し、`Started` メッセージが表示される。初回はイメージ取得のため数分かかる。  
+   **エラー時の確認**: `Cannot connect to the Docker daemon` が出る場合は `sudo systemctl status docker` でサービス状態を確認する。
+
+4. 状態確認  
+   **コマンド**
+   ```bash
+   sudo docker compose ps
+   ```
+   **想定結果**: `State` 列が `running`、`Health` 列が `healthy`。  
+   **エラー時の確認**: `unhealthy` の場合は次手順のログ確認で原因を特定する。
+
+5. ログ確認  
+   **コマンド**
+   ```bash
+   sudo docker logs postgres --tail 50
+   ```
+   **想定結果**: 出力末尾に `database system is ready to accept connections` が表示される。  
+   **エラー時の確認**: `FATAL: password authentication failed` などが出た場合は `.env` の資格情報と既存ボリュームの整合を確認する。
+
+6. 永続化確認  
+   **コマンド**
+   ```bash
+   sudo docker volume inspect postgres-data
+   ```
+   **想定結果**: `Mountpoint` が `/var/lib/docker/volumes/postgres-data/_data` 等、ホスト上の永続領域を指す。  
+   **エラー時の確認**: ボリュームが存在しない場合は `docker compose down` → `docker compose up -d` で再生成する。
+
+7. スナップショット実行  
+   **コマンド**
+   ```bash
+   sudo PG_URI="postgresql://USER:PASSWORD@localhost:5432/DB" tool-snapshot.sh --dest /srv/rpi-server/snapshots
+   ```
+   **想定結果**: `/srv/rpi-server/snapshots/yyyymmdd_hhmmss/db/pg_dump.sql` が作成される。ログに `snapshot completed` が出力。  
+   **エラー時の確認**: `pg_dump` が見つからない場合は `postgresql-client` のインストールと `PATH` を確認。接続拒否の場合は `pg_hba.conf` 等を調整。
+
+8. バックアップ書き出し（dry-run）  
+   **コマンド**
+   ```bash
+   sudo tool-backup-export.sh --device /dev/sdX1 --dry-run
+   ```
+   **想定結果**: 最新スナップショットのアーカイブ計画がログに出力され、USB への書き込みは行われない。  
+   **エラー時の確認**: `validation failed` が出た場合は USB のラベルと `/.toolmaster/role` を確認する。
+
+9. 本番バックアップ  
+   **コマンド**
+   ```bash
+   sudo tool-backup-export.sh --device /dev/sdX1
+   ```
+   **想定結果**: USB 直下に `*_full.tar.zst` が生成され、ログに `backup export completed` が出力。完了後は `sync` → `sudo umount`。  
+   **エラー時の確認**: 書き込みエラーは USB の残容量とマウント状態を確認。
+
+**想定されるトラブルと診断**
+- `Cannot connect to the Docker daemon`: `sudo systemctl status docker` で状態確認、停止時は `sudo systemctl start docker`。`docker` グループ未所属の場合は `sudo usermod -aG docker $USER` 後再ログイン。
+- コンテナが `unhealthy`: `sudo docker logs postgres` で原因を特定。`POSTGRES_PASSWORD` を変更した場合は `postgres-data` をリセットする必要がある。
+- `pg_dump` コマンド未検出: `sudo apt install postgresql-client` を再実行し、PATH に `/usr/bin` を含める。
+- バックアップ USB を認識しない: `lsblk` でデバイスを確認し、`/etc/udev/rules.d/90-toolmaster.rules` のラベル定義を再確認。
+
+**ロールバック**
+1. `sudo docker compose down` でコンテナを停止。
+2. 永続ボリュームを削除する場合は `sudo docker volume rm postgres-data`（本番データは削除されるため要注意）。
+3. `.env` や `postgres-data` に秘密情報が残る場合はバックアップ後に消去。
+
+**バックアップ後の確認**
+- `/srv/rpi-server/snapshots/latest/db/pg_dump.sql` のタイムスタンプとサイズを確認。
+- USB （`/media/TM-BACKUP` 等）に生成された `*_full.tar.zst` のサイズを記録し、保管ログへ転記。
 
 ## 4. ロールバック手順
 1. `sudo systemctl disable tool-snapshot.timer`
