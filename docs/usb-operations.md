@@ -6,9 +6,11 @@
 
 | ラベル例 | シグネチャファイル | 主目的 | 挿入先 | 備考 |
 | --- | --- | --- | --- | --- |
-| `TOOLMASTER-INGEST` | `/.toolmaster/role` に `INGEST` | 外部で更新したマスターデータや PDF をサーバーへ持ち込む | サーバーのみ（書き込みあり） | サーバーが新旧比較後に公式データへマージし、USB メモリ内容を最新化する |
-| `TOOLMASTER-DIST` | `/.toolmaster/role` に `DIST` | サーバーの公式データを各端末へ配布 | 端末（DocumentViewer / 工具管理端末） | 端末は常に USB メモリ → 端末への一方向コピー。書き戻しは禁止 |
-| `TOOLMASTER-BACKUP` | `/.toolmaster/role` に `BACKUP` | サーバーの世代バックアップを外部保管 | サーバーのみ（書き込みあり） | `udev` 連携で挿入時に最新スナップショットを `tar + zstd` 形式で出力 |
+| `TM-INGEST` | `/.toolmaster/role` に `INGEST` | 外部で更新したマスターデータや PDF をサーバーへ持ち込む | サーバーのみ（書き込みあり） | ext4 のラベル最大 16 文字制限を踏まえた省略形。サーバーが新旧比較後に公式データへマージし、USB メモリ内容を最新化する |
+| `TM-DIST` | `/.toolmaster/role` に `DIST` | サーバーの公式データを各端末へ配布 | 端末（DocumentViewer / 工具管理端末） | 端末は常に USB メモリ → 端末への一方向コピー。書き戻しは禁止 |
+| `TM-BACKUP` | `/.toolmaster/role` に `BACKUP` | サーバーの世代バックアップを外部保管 | サーバーのみ（書き込みあり） | `udev` 連携で挿入時に最新スナップショットを `tar + zstd` 形式で出力 |
+
+> ラベルは ext4 の 16 文字制限に合わせて短縮している。既存運用で別ラベルを使う場合は、`USB_INGEST_LABEL` などの環境変数で上書き可能。
 
 シグネチャファイルが欠落している、または内容が一致しない場合は処理を中断し、`/srv/rpi-server/logs/usb_guard.log` に警告を出力する。
 
@@ -18,7 +20,7 @@
 - USB メモリに以下の構成でファイルを用意しておくこと。
 
 ```
-TOOLMASTER-INGEST/
+TM-INGEST/
 ├── .toolmaster/
 │   └── role (内容: INGEST)
 ├── master/
@@ -31,7 +33,7 @@ TOOLMASTER-INGEST/
 ```
 
 ### 手順
-1. サーバー管理者が `TOOLMASTER-INGEST` をサーバーに挿す。
+1. サーバー管理者が `TM-INGEST` をサーバーに挿す。
 2. `udev` → `systemd` で `usb-ingest@<デバイス>.service` を起動。
 3. サービスは `/.toolmaster/role` を確認し、`INGEST` であることを検証。異なる場合は処理を終了。
 4. `meta.json` とファイルタイムスタンプを比較し、USB メモリ側が新しい場合のみサーバー上の `/srv/rpi-server/master/` および `/srv/rpi-server/docviewer/` を更新。
@@ -45,11 +47,11 @@ TOOLMASTER-INGEST/
 ## 3. 端末への配布（DIST）
 
 ### 前提
-- サーバー側で定期的または必要に応じて `TOOLMASTER-DIST` へ最新データを書き出しておく（手動コマンド例をセクション 5 参照）。
+-- サーバー側で定期的または必要に応じて `TM-DIST` へ最新データを書き出しておく（手動コマンド例をセクション 5 参照）。
 - 端末側（DocumentViewer、工具管理端末）には `/usr/local/bin/tool-dist-sync.sh` を配置する。
 
 ### 手順
-1. 担当者が `TOOLMASTER-DIST` を端末に挿す。
+1. 担当者が `TM-DIST` を端末に挿す。
 2. 端末側の udev ルールが `/.toolmaster/role` を確認し、`DIST` であることを検証。
 3. `tool-dist-sync.sh` は USB メモリの `master/`、`docviewer/` を読み込み、端末ローカルのデータディレクトリを上書きコピーする。
 4. コピー完了後、ログを `/var/log/tool-dist-sync.log` に追記し、端末のアプリケーション（DocumentViewer や工具管理 UI）へリロード通知を送る。
@@ -62,10 +64,10 @@ TOOLMASTER-INGEST/
 
 ### 前提
 - サーバーは cron または systemd timer で `/srv/rpi-server` 配下のデータを日次スナップショット（7 世代）として保持する（`/srv/rpi-server/snapshots/YYYY-MM-DD/`）。
-- バックアップ専用 USB メモリ（`TOOLMASTER-BACKUP`）を準備し、64 GB 以上の容量を確保する。
+- バックアップ専用 USB メモリ（`TM-BACKUP`）を準備し、64 GB 以上の容量を確保する。
 
 ### 手順
-1. 管理者が `TOOLMASTER-BACKUP` をサーバーに挿す。
+1. 管理者が `TM-BACKUP` をサーバーに挿す。
 2. `usb-backup@<デバイス>.service` が起動し、シグネチャを確認。
 3. 最新スナップショットを `tar` + `zstd` で圧縮し、USB メモリ直下に `YYYY-MM-DD_full.tar.zst` という名前で保存する。
 4. USB メモリ上のアーカイブが 4 ファイルを超えた場合は最も古いものから削除。
@@ -84,7 +86,7 @@ sudo /usr/local/bin/tool-ingest-sync.sh --refresh
 
 ### サーバーで DIST 用 USB メモリへ書き出し
 ```bash
-sudo /usr/local/bin/tool-dist-export.sh --target /media/TOOLMASTER-DIST
+sudo /usr/local/bin/tool-dist-export.sh --target /media/TM-DIST
 ```
 
 ### 日次スナップショット作成（systemd timer から呼び出し）
@@ -94,7 +96,7 @@ sudo /usr/local/bin/tool-dist-export.sh --target /media/TOOLMASTER-DIST
 
 ### 最新スナップショットを BACKUP 用 USB メモリへコピー
 ```bash
-sudo /usr/local/bin/tool-backup-export.sh --target /media/TOOLMASTER-BACKUP
+sudo /usr/local/bin/tool-backup-export.sh --target /media/TM-BACKUP
 ```
 
 ## 6. 今後の実装タスク
@@ -111,17 +113,17 @@ sudo /usr/local/bin/tool-backup-export.sh --target /media/TOOLMASTER-BACKUP
 `/etc/udev/rules.d/90-toolmaster.rules`
 
 ```
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TOOLMASTER-INGEST", \
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TM-INGEST", \
     ENV{SYSTEMD_WANTS}="usb-ingest@%k.service"
 
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TOOLMASTER-BACKUP", \
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TM-BACKUP", \
     ENV{SYSTEMD_WANTS}="usb-backup@%k.service"
 
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TOOLMASTER-DIST", \
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TM-DIST", \
     ENV{SYSTEMD_WANTS}="usb-dist-notify@%k.service"
 ```
 
-※ `TOOLMASTER-DIST` は端末側での自動実行用に使用する。サーバー側では通知のみ。
+※ `TM-DIST` は端末側での自動実行用に使用する。サーバー側では通知のみ。
 
 ### 7.2 systemd unit テンプレート
 
@@ -204,7 +206,7 @@ WantedBy=multi-user.target
 
 ### 8.3 `tool-dist-export.sh`
 
-- 引数: `--target /media/TOOLMASTER-DIST`
+- 引数: `--target /media/TM-DIST`
 - 処理概要
   - サーバー側の公式データを一時フォルダへコピーし、`rsync --delete` で USB メモリへ反映
   - オプションで `--include-pdf`, `--include-master` を制御可能
@@ -254,10 +256,10 @@ WantedBy=multi-user.target
 
 | スクリプト | 主な用途 | 既定ディレクトリ / 環境変数 |
 | --- | --- | --- |
-| `tool-ingest-sync.sh` | INGEST USB → サーバー同期 | `SERVER_ROOT=/srv/rpi-server`, `SERVER_MASTER_DIR`, `SERVER_DOC_DIR` |
-| `tool-dist-export.sh` | サーバー → DIST USB へエクスポート | 同上 |
-| `tool-dist-sync.sh` | DIST USB → 端末ローカル同期 | `LOCAL_MASTER_DIR=/opt/toolmaster/master`, `LOCAL_DOC_DIR=/opt/toolmaster/docviewer` |
-| `tool-backup-export.sh` | スナップショットを BACKUP USB へ退避 | `SNAPSHOT_DIR=/srv/rpi-server/snapshots`, `BACKUP_RETENTION=4` |
+| `tool-ingest-sync.sh` | INGEST USB → サーバー同期 | `SERVER_ROOT=/srv/rpi-server`, `SERVER_MASTER_DIR`, `SERVER_DOC_DIR`, `USB_INGEST_LABEL=TM-INGEST` |
+| `tool-dist-export.sh` | サーバー → DIST USB へエクスポート | 同上 + `USB_DIST_LABEL=TM-DIST` |
+| `tool-dist-sync.sh` | DIST USB → 端末ローカル同期 | `LOCAL_MASTER_DIR=/opt/toolmaster/master`, `LOCAL_DOC_DIR=/opt/toolmaster/docviewer`, `USB_DIST_LABEL=TM-DIST` |
+| `tool-backup-export.sh` | スナップショットを BACKUP USB へ退避 | `SNAPSHOT_DIR=/srv/rpi-server/snapshots`, `BACKUP_RETENTION=4`, `USB_BACKUP_LABEL=TM-BACKUP` |
 | `tool-snapshot.sh` | 日次スナップショット作成 | `SNAPSHOT_ROOT=/srv/rpi-server/snapshots`, `PG_URI` |
 | `lib/toolmaster-usb.sh` | 共通ライブラリ | `USB_LOG_DIR=/srv/rpi-server/logs`, `USB_MAX_RETRY=3` |
 
@@ -273,7 +275,7 @@ WantedBy=multi-user.target
    sudo wipefs -a /dev/sdX
    sudo parted /dev/sdX --script mklabel gpt
    sudo parted /dev/sdX --script mkpart primary ext4 0% 100%
-   sudo mkfs.ext4 -L TOOLMASTER-BACKUP /dev/sdX1
+   sudo mkfs.ext4 -L TM-BACKUP /dev/sdX1
    ```
 3. シグネチャディレクトリを配置。
    ```bash
@@ -289,7 +291,7 @@ WantedBy=multi-user.target
 - バックアップアーカイブは `YYYY-MM-DD_full.tar.zst` のファイル名で保存。
 - 保持数は 4 世代（約 4 週間）とし、保存後に `find` で古いファイルを削除。
   ```bash
-  find /media/TOOLMASTER-BACKUP -maxdepth 1 -name "*_full.tar.zst" \
+  find /media/TM-BACKUP -maxdepth 1 -name "*_full.tar.zst" \
       -printf "%T@ %p\n" | sort -n | head -n -4 | cut -d' ' -f2- | xargs -r rm -f
   ```
 - コピー完了後は `/srv/rpi-server/logs/backup.log` に下記のような記録を残す。
@@ -302,7 +304,7 @@ WantedBy=multi-user.target
 - 月次で 1 世代を選び、テスト用ディレクトリに展開して整合性を確認。
   ```bash
   mkdir -p /srv/rpi-server/tmp-restore
-  sudo tar --zstd -xf /media/TOOLMASTER-BACKUP/2025-02-20_full.tar.zst -C /srv/rpi-server/tmp-restore
+  sudo tar --zstd -xf /media/TM-BACKUP/2025-02-20_full.tar.zst -C /srv/rpi-server/tmp-restore
   ```
 - PostgreSQL ダンプのリストアテスト、マスターデータ同期テストを実施し、結果を `backup.log` に追記。
 
