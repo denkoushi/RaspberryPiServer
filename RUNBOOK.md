@@ -57,6 +57,7 @@ sudo ln -sf /usr/local/toolmaster/bin/tool-backup-export.sh /usr/local/bin/tool-
 sudo ln -sf /usr/local/toolmaster/bin/tool-snapshot.sh /usr/local/bin/tool-snapshot.sh
 sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-usb.sh
 sudo install -m 755 scripts/mirrorctl.py /usr/local/bin/mirrorctl
+sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 ```
 ### 3.4 Docker/PostgreSQL セットアップ
 
@@ -71,7 +72,7 @@ sudo install -m 755 scripts/mirrorctl.py /usr/local/bin/mirrorctl
 1. 依存パッケージ導入  
    **コマンド**
    ```bash
-   sudo apt install -y docker.io docker-compose-plugin postgresql-client
+   sudo apt install -y docker.io docker-compose-plugin postgresql-client python3-psycopg2
    ```
    **想定結果**: `docker`, `docker compose`, `pg_dump` が利用可能になる。既に導入済みの場合は `0 upgraded` 等が表示される。  
    **エラー時の確認**: 失敗時は `apt` のログを確認し、必要に応じてパッケージキャッシュを更新する（`sudo apt update`）。
@@ -205,6 +206,27 @@ sudo install -m 755 scripts/mirrorctl.py /usr/local/bin/mirrorctl
 1. `sudo mirrorctl disable`
 2. `sudo systemctl status mirror-compare.timer` で停止済みを確認。
 3. Pi Zero 側 `/etc/onsitelogistics/config.json` を確認し、`mirror_endpoint` が削除されていることを確認。
+
+### 3.6 mirror_compare タイマー運用
+
+**手動検証（dry-run）**  
+```bash
+mirror_compare.py --dry-run
+```
+**想定結果**: 差分が無い場合は `status":"OK"` を含む JSON が標準出力に表示され、ログやカウンタは更新されない。  
+**エラー時の確認**: `psycopg` ImportError → `sudo apt install python3-psycopg2`。DB 接続エラーが出た場合は `primary_db_uri` / `mirror_db_uri` とネットワーク疎通を確認する。
+
+**本実行**  
+```bash
+sudo mirror_compare.py
+```
+**想定結果**: `/srv/rpi-server/logs/mirror_status.log` に実行結果が追記され、差分発生時は `mirror_diff.log` に詳細 JSON が記録される。OK ストリークは `/var/lib/mirror/ok_counter` に加算される。  
+**ロールバック**: 直前の実行を無視したい場合は、該当ログ行を削除し `ok_counter` を手動で調整する。ログ整理は `sudo mirrorctl rotate` で実施可能。
+
+**タイマー確認手順**
+- `sudo systemctl status mirror-compare.timer`
+- `sudo systemctl status mirror-compare.service`
+- `journalctl -u mirror-compare.service --since "1 day ago"`
 
 ## 4. ロールバック手順
 1. `sudo systemctl disable tool-snapshot.timer`

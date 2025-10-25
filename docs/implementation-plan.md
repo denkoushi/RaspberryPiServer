@@ -46,7 +46,7 @@
 ## 3. 共通検証項目
 
 - **USB 運用**: INGEST → サーバー反映 → DIST エクスポート → 端末同期 → バックアップまでの一連テストを自動化する。
-- **データ整合性**: `mirror-compare.sh` と PostgreSQL クエリで差分がないことを確認。
+- **データ整合性**: `mirror_compare.py` と PostgreSQL クエリで差分がないことを確認。
 - **ロールバック**: 各リポジトリで `git checkout main` / `docker compose down` / `systemctl disable` を実施し、旧構成へ復帰できるか確認。
 - **RUNBOOK**: 切替手順書、トラブルシュート、連絡フローをまとめ、現場共有する。
 
@@ -87,6 +87,6 @@
 - OnSiteLogistics ミラー (`mirrorctl`, `mirror-compare`) 実装と Pi Zero 設定更新 — 仕様案: `docs/mirrorctl-spec.md`
   - `scripts/mirrorctl.py` で `status/enable/disable/rotate` を実装済み（Pi Zero 設定バックアップ・書き換え、SSH 経由のサービス再起動、mirror-compare.timer 制御、ログローテーション対応）。
   - 設定テンプレート `config/mirrorctl-config.sample.json` を配置。デプロイ先では `/etc/mirrorctl/config.json` へ展開予定。
-  - TODO: `mirror-compare.sh` の実装、Pi Zero 側ミラー送信モード実装、mirrorctl の統合テストと RUNBOOK 監視手順の拡張。
+  - TODO: `mirror_compare.py` の拡張（差分検出指標の追加）と Pi Zero 側ミラー送信モード実装、mirrorctl の統合テストと RUNBOOK 監視手順の拡張。
 
 状況変化に応じて本ロードマップを更新し、進捗共有の基準とする。

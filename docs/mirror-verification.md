@@ -57,7 +57,7 @@
 
 ## 4. 差分検証スクリプト
 
-- スクリプト: `/usr/local/bin/mirror-compare.sh`
+- スクリプト: `/usr/local/bin/mirror_compare.py`
 - 実行タイミング: systemd timer `mirror-compare.timer`（毎日 02:00）
 
 ### 4.1 処理フロー
@@ -96,7 +96,7 @@
 ## 8. 実装タスク
 
 - OnSiteLogistics 側のミラー送信モード実装（HTTP 二重送信とキュー管理）
-- RaspberryPiServer 側のログ・比較スクリプト実装と systemd timer 設定
+- RaspberryPiServer 側のログ・比較スクリプト（`mirror_compare.py`）実装と systemd timer 設定
 - `mirrorctl` CLI の実装（Python または Bash）
 - 運用ドキュメント（RUNBOOK）への切替判断フロー追記
 

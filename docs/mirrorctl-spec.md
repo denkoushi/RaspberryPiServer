@@ -58,10 +58,10 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
   }
   ```
 - OK カウンタ: `/var/lib/mirror/ok_counter` に整数値を保持。
-- `mirror-compare.sh`: 日次比較スクリプト（Python もしくは Bash）で比較結果を JSON ログに記録。
+- `mirror_compare.py`: 日次比較スクリプト（Python）で比較結果を JSON ログに記録。依存パッケージ: `python3-psycopg2`。
 
 ## 5. TODO
-- `mirror-compare.sh` の仕様書と連携フォーマット（JSON）確定。
+- `mirror_compare.py` の仕様書と連携フォーマット（JSON）確定。
 - Pi Zero 側の設定テンプレートを `docs/implementation-plan.md` に追記。
 - CI/自動テスト: ループバック環境で `mirrorctl enable` → `status` → `disable` の動作確認手順を用意。
 
