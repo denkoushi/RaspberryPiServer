@@ -60,6 +60,7 @@
 - アーキテクチャ概要: `docs/architecture.md`
 - USB メモリ運用手順: `docs/usb-operations.md`
 - ミラー検証設計: `docs/mirror-verification.md`
+- 実装ロードマップ: `docs/implementation-plan.md`
 - 運用手順: `RUNBOOK.md`（未作成）
 - 障害対応テンプレート: `docs/incident-response.md`（必要に応じて新規作成）
 
