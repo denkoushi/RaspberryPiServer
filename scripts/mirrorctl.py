@@ -95,7 +95,7 @@ def ssh_command(host: str, user: str, remote_command: str, *, input_text: Option
 
 
 def fetch_remote_config(host: str, user: str, config_path: str) -> Dict[str, Any]:
-    result = ssh_command(host, user, f"cat {config_path}")
+    result = ssh_command(host, user, f"cat {config_path}", sudo=True)
     if result.returncode != 0:
         raise MirrorCtlError(f"Pi Zero 設定の取得に失敗しました: {result.stderr.strip()}")
     try:
@@ -113,7 +113,7 @@ def backup_remote_config(host: str, user: str, config_path: str) -> None:
 
 def write_remote_config(host: str, user: str, config_path: str, content: Dict[str, Any]) -> None:
     payload = json.dumps(content, ensure_ascii=False, indent=2) + "\n"
-    result = ssh_command(host, user, f"tee {config_path}", input_text=payload)
+    result = ssh_command(host, user, f"tee {config_path}", input_text=payload, sudo=True)
     if result.returncode != 0:
         raise MirrorCtlError(f"Pi Zero 設定の書き込みに失敗しました: {result.stderr.strip()}")
 
