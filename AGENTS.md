@@ -64,6 +64,7 @@
 - テストログ: `docs/test-notes/2025-10-25-usb-loopback.md`
 - テストログ（物理 USB）: `docs/test-notes/2025-10-25-physical-usb.md`
 - テストログ（PostgreSQL Compose）: `docs/test-notes/2025-10-25-postgres-compose.md`
+- テスト計画（mirrorctl/mirror_compare）: `docs/test-notes/2025-10-25-mirrorctl-integration-plan.md`
 - 運用手順: `RUNBOOK.md`
 - 障害対応テンプレート: `docs/incident-response.md`（必要に応じて新規作成）
 
