@@ -198,10 +198,14 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
    **想定結果**: `mirror_requests.log` / `mirror_diff.log` が日付付き `.gz` に退避され、30 日より古いファイルが削除される。  
    **エラー時の確認**: ログディレクトリ権限不足 → `/srv/rpi-server/logs/` の所有者を確認。
 
+**日次チェック**
+- `docs/test-notes/2025-10-25-mirrorctl-integration-plan.md` のチェックリストに沿って 1 日 1 回手動検証を行い、結果を記録する。
+- `mirrorctl status` の出力・Pi Zero の送信ログ・DocumentViewer の画面・USB 取り込み結果をスクリーンショットやメモで残す。
+- OK カウンタ: `sudo cat /var/lib/mirror/ok_counter`
+
 **追加モニタリング**
 - `journalctl -t mirrorctl -n 50` で mirrorctl 実行ログを確認。
-- `journalctl -u mirror-compare.timer` / `mirror-compare.service` で定期比較の実行有無を確認。
-- OK カウンタ: `sudo cat /var/lib/mirror/ok_counter`
+- `journalctl -u mirror-compare.timer` / `mirror-compare.service` で健全性チェック実行を確認。
 - 初回セットアップ時は `sudo systemctl enable --now mirror-compare.timer` を実行し、`systemctl list-timers` で登録を確認する。
 
 **ミラー停止時のロールバック**
@@ -215,14 +219,14 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 ```bash
 mirror_compare.py --dry-run
 ```
-**想定結果**: 差分が無い場合は `status":"OK"` を含む JSON が標準出力に表示され、ログやカウンタは更新されない。  
-**エラー時の確認**: `psycopg` ImportError → `sudo apt install python3-psycopg2`。DB 接続エラーが出た場合は `primary_db_uri` / `mirror_db_uri` とネットワーク疎通を確認する。
+**想定結果**: `status":"OK"` を含む JSON が標準出力に表示され、ログやカウンタは更新されない（RaspberryPiServer 内部の健全性チェックとして利用）。  
+**エラー時の確認**: `psycopg` ImportError → `sudo apt install python3-psycopg2`。DB 接続エラーが出た場合は `primary_db_uri` / `mirror_db_uri`（どちらも localhost）とテーブル状態を確認する。
 
 **本実行**  
 ```bash
 sudo mirror_compare.py
 ```
-**想定結果**: `/srv/rpi-server/logs/mirror_status.log` に実行結果が追記され、差分発生時は `mirror_diff.log` に詳細 JSON が記録される。OK ストリークは `/var/lib/mirror/ok_counter` に加算される。  
+**想定結果**: `/srv/rpi-server/logs/mirror_status.log` に実行結果が追記され、異常があれば `mirror_diff.log` に記録される。OK ストリークは `/var/lib/mirror/ok_counter` に加算される。  
 **ロールバック**: 直前の実行を無視したい場合は、該当ログ行を削除し `ok_counter` を手動で調整する。ログ整理は `sudo mirrorctl rotate` で実施可能。
 
 **タイマー確認手順**
@@ -244,7 +248,7 @@ sudo mirror_compare.py
 | USB 自動処理が動かない | `journalctl -u usb-ingest@*` などでエラー確認 | スクリプト配置とラベル/role を再確認。 `/usr/local/lib/toolmaster-usb.sh` の存在を確認 |
 | スナップショットが生成されない | `systemctl status tool-snapshot.timer`、`journalctl -u tool-snapshot.service` | タイマーが有効か、`/srv/rpi-server/snapshots` の権限確認 |
 | バックアップ USB にアーカイブが無い | `/mnt/backup` のマウント・残容量確認 | アーカイブの手動作成: `sudo tool-backup-export.sh --device /dev/sdX1` |
-| ミラー比較が実行されない / 差分が解消しない | `mirrorctl status`、`journalctl -u mirror-compare.service` | `mirrorctl enable` で再有効化。Pi Zero 設定 (`mirror_mode`, `mirror_endpoint`) を確認し、差分ログ (`mirror_diff.log`) を解析 |
+| ミラー検証で × が出る | `mirrorctl status`、日次チェックシート、`journalctl -u mirror-compare.service` | `sudo mirrorctl disable` で一時停止。Pi Zero 設定やログ（`mirror_requests.log` / `mirror_status.log` / `mirror_diff.log`）を確認し、原因解消後に再度 `mirrorctl enable` して日次チェックをやり直す |
 
 ## 6. 連絡フロー
 - 1 次対応: システム担当（RaspberryPiServer 運用者）

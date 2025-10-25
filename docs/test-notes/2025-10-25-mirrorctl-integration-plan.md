@@ -1,32 +1,42 @@
-# 2025-10-25 mirrorctl / mirror_compare 統合テスト計画
+# 2025-10-25 mirrorctl / mirror_compare 手動検証計画
 
 ## 目的
-- RaspberryPiServer 上の `mirrorctl` と `mirror_compare.py`、および Pi Zero 側設定反映の連携動作を検証し、ミラー送信開始〜差分比較までの一連フローを確認する。
+- `mirrorctl` と `mirror_compare.py` を用いたミラー運用で、Pi Zero → RaspberryPiServer → DocumentViewer → USB 配布までのフローが確実に成立することを手動で確認する。
+- 14 日間連続で日次チェックを実施し、問題があれば即時ロールバック・再検証できる体制を整える。
 
 ## 前提条件
 - RaspberryPiServer の `feature/server-ops-docs` ブランチを最新化済み。
-- `mirrorctl` / `mirror_compare.py` を `/usr/local/bin` に配置済み、`python3-psycopg2` など必要パッケージ導入済み。
-- Pi Zero 側 SSH 鍵認証が完了し、`onsite-handheld.service` が有効。`/etc/onsitelogistics/config.json` への書き込み権限を確認済み。
-- Window A 側 PostgreSQL が稼働し、`part_locations` テーブルに最新データが保持されている。
+- `mirrorctl` / `mirror_compare.py` を `/usr/local/bin` に配置済み。依存パッケージ（`python3-psycopg` など）を導入済み。
+- Pi Zero への SSH 鍵認証が完了し、`/etc/onsitelogistics/config.json` を `mirrorctl` で編集できる。
+- DocumentViewer が RaspberryPiServer の Socket.IO へ接続できる状態である。
 
-## テスト項目
-| # | テスト内容 | 手順 | 期待結果 | 備考 |
-| --- | --- | --- | --- | --- |
-| 1 | mirrorctl 設定確認 | `mirrorctl status` | タイマー/サービス `inactive/disabled`、OK カウンタ数値が表示される | 初期状態 |
-| 2 | ミラー有効化 | `sudo mirrorctl enable` | Pi Zero 設定 `mirror_mode=true`、`mirror-compare.timer` が `enabled/active` | Pi Zero 設定差分を `ssh` で確認 |
-| 3 | mirrorctl status 再確認 | `mirrorctl status` | OK カウンタ=0、タイマー/サービス `active/enabled`、最新ログに `enable executed` | |
-| 4 | mirror_compare 手動実行 | `sudo mirror_compare.py --strict` | 差分なしなら `mirror_status.log` に `OK` 追記、差分ありなら `mirror_diff.log` に JSON 出力 | 差分発生時は #5 へ |
-| 5 | 差分解析 | `jq` で `mirror_diff.log` 最新行確認 | 差分内容（missing/field mismatch）が確認できる | 差分解消できるまで繰り返す |
-| 6 | OKストリーク確認 | `sudo cat /var/lib/mirror/ok_counter` | 差分がなければ 1 → タイマー実行毎に加算 | 14 連続で切替条件達成 |
-| 7 | タイマー稼働確認 | `systemctl list-timers mirror-compare.timer` | 次回起動時刻・最終実行時刻が表示される | `journalctl -u mirror-compare.service` も確認 |
-| 8 | ミラー停止 | `sudo mirrorctl disable` | Pi Zero 設定 `mirror_mode=false`、タイマー `disabled/inactive`、ログに `disable executed` | |
-| 9 | ローテーション | `sudo mirrorctl rotate` | 既存ログが `.gz` に圧縮され、30 日より古いものは削除 | `ls /srv/rpi-server/logs` で確認 |
+## 日次検証メニュー
 
-## ケース別チェックリスト
-- **差分発生時**: `diff` 情報をもとに Window A / RaspberryPiServer 双方の `part_locations` を再確認し、必要に応じて再同期やログ点検を実施する。
-- **SSH エラー時**: `ssh pi@onsite-handheld.local` でログインできるか確認し、鍵配置を修正。`mirrorctl enable` を再実行。
-- **timer エラー時**: `journalctl -u mirror-compare.service` のスタックトレースを確認し、DB URI や資格情報を見直す。
+| # | 項目 | 手順 | 期待結果 | 記録欄 |
+|---|---|---|---|---|
+| 1 | `mirrorctl status` | `mirrorctl status` を実行 | `mirror_mode=true`、タイマー `active/enabled`、OK カウンタ確認 | ○/×・メモ |
+| 2 | Pi Zero 送信 | ハンディリーダでサンプルの部品票 + 棚を読み取り | 成功音・表示、Pi Zero ローカルログにエラーなし | ○/×・メモ |
+| 3 | API ログ確認 | `sudo tail -n 3 /srv/rpi-server/logs/mirror_requests.log` | 最新エントリに本日の送信が記録される | ○/×・メモ |
+| 4 | DB 反映 | `PGPASSWORD=app psql -h localhost -U app -d sensordb -c "...ORDER BY updated_at DESC LIMIT 1"` | `order_code` と `location_code` が最新に更新されている | ○/×・メモ |
+| 5 | mirror_compare | `sudo /usr/local/bin/mirror_compare.py --strict` | `mirror_status.log` に `status: OK` が追記される | ○/×・メモ |
+| 6 | DocumentViewer | 所在一覧画面で該当オーダーが表示されるか確認 | 画面更新で最新データが反映される | ○/×・メモ |
+| 7 | USB フロー | `tool-dist-sync.sh` 等で DIST USB を作成し、端末で取り込み | 端末側で最新データが反映される | ○/×・メモ |
+| 8 | 記録 | 上記を日次チェックシートへ記入、異常時はログを添付 | チェックシートが更新される | 実施者・時刻 |
 
-## フォローアップ
-- テスト完了後、結果を `docs/test-notes/` 配下にログとして追加する。
-- 14 日連続 OK 達成後、`docs/requirements.md` のミラー切替条件達成を記録し、RUNBOOK に移行手順を追記する。
+テンプレートは `docs/test-notes/mirror-check-template.md` を利用し、日付ごとに行を追記する。
+
+## 異常時の対応
+- いずれかの項目が × になった場合は即座に `sudo mirrorctl disable` を実行し、Pi Zero の送信を停止する。
+- `mirror_requests.log` / `mirror_status.log` / `mirror_diff.log` の該当箇所を控え、原因を調査する。
+- 原因解消後、再度 `mirrorctl enable` を実行。日次チェックはその日からカウントし直す。
+
+## 14 日連続達成の判定
+- 連続日数カウンタは、チェックリストで全項目が ○ だった日に +1 する。
+- 途中で × が発生したらカウンタを 0 にリセットし、再度 14 日のカウントを開始する。
+- 達成後は Decision Log へ日付と担当者を追記し、RUNBOOK に切替作業の実施記録を残す。
+
+## 参考ログ（2025-10-25 実施）
+- 22:05 `/etc/mirrorctl/config.json` の `primary_db_uri` を `postgresql://app:app@localhost:5432/sensordb` へ更新。
+- 22:08 `sensordb` に `part_locations` テーブルを新規作成。
+- 22:12 `sudo mirrorctl enable` → `mirror-compare.service` が `status=0/SUCCESS`。
+- 22:13 `sudo /usr/local/bin/mirror_compare.py --dry-run` → `diff_count=0`、`ok_streak=1` を確認。

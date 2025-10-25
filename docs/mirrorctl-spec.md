@@ -16,9 +16,9 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
 
 ### 3.1 enable
 1. Pi Zero (OnSiteLogistics) へ SSH し、`/etc/onsitelogistics/config.json` の `mirror_mode=true` と `mirror_endpoint` を設定。
-2. `sudo systemctl restart onsite-handheld.service` 等、Pi Zero 側のサービス再起動。
+2. 必要に応じて Pi Zero 側サービス（例: `onsite-handheld.service`）を再起動（設定内容に応じて検討）。
 3. RaspberryPiServer 側で `mirror-compare.timer` を `systemctl enable --now`。
-4. 初期化として OK カウンタを 0 にリセット、ログローテーションを実施。
+4. 初期化として OK カウンタを 0 にリセットし、日次チェックシートへ開始記録を残す。
 
 ### 3.2 disable
 1. Pi Zero 側設定で `mirror_mode=false` に戻し、`mirror_endpoint` を削除。
@@ -29,12 +29,13 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
 表示項目例:
 - ミラー状態（enabled/disabled）
 - OK ストリーク日数 / 目標 (例: `5 / 14`)
-- 最終比較時刻と結果 (`OK` or 差分件数)
-- Pi Zero 側設定 (`primary_endpoint`, `mirror_endpoint`)
-- 過去 24 時間の遅延平均（mirror_requests.log から算出）
+- 最終検証時刻と結果 (`OK` / `NG`)
+- Pi Zero 側設定 (`mirror_endpoint`, `mirror_mode`)
+- `mirror_status.log` / `mirror_diff.log` の最新概要
 
 ### 3.4 rotate
 - `mirror_requests.log` と `mirror_diff.log` を gzip 圧縮（例: `mirror_requests-20250220.log.gz`）し、30 日より古いファイルを削除。
+- 必要に応じて日次チェックシートへローテーション実施を記録。
 
 ## 4. 実装メモ
 - 言語: Python（`argparse` + `subprocess` + `json`) を想定。
@@ -53,17 +54,17 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
     "mirror_service": "mirror-compare.service",
     "pi_zero_service": "onsite-handheld.service",
     "mirror_endpoint": "http://raspi-server.local:8501/api/v1/scans",
-    "primary_endpoint": "http://window-a.local:8501/api/v1/scans",
+    "primary_endpoint": "http://raspi-server.local:8501/api/v1/scans",
     "log_retention_days": 30
   }
   ```
 - OK カウンタ: `/var/lib/mirror/ok_counter` に整数値を保持。
-- `mirror_compare.py`: 日次比較スクリプト（Python）で比較結果を JSON ログに記録。依存パッケージ: `python3-psycopg2`。
+- `mirror_compare.py`: 日次健全性チェック用スクリプト（Python）。DB 接続可否・ログ書き込みが正常かを確認し、結果を JSON ログに記録する。依存パッケージ: `python3-psycopg2`。
 
-## 5. TODO
-- `mirror_compare.py` の仕様書と連携フォーマット（JSON）確定。
-- Pi Zero 側の設定テンプレートを `docs/implementation-plan.md` に追記。
-- CI/自動テスト: ループバック環境で `mirrorctl enable` → `status` → `disable` の動作確認手順を用意。
+## 5. テスト・運用メモ
+- 日次チェック: `docs/test-notes/2025-10-25-mirrorctl-integration-plan.md` と `docs/test-notes/mirror-check-template.md` を参照し、14 日連続で全項目 OK を目指す。
+- Pi Zero 側設定テンプレートは `docs/implementation-plan.md` にまとめる。
+- 自動テスト: 将来的にループバック環境で `mirrorctl enable` → `status` → `disable` を実行するスモークテストを検討。
 
 ### 実装メモ（2025-10-25 更新）
 - `scripts/mirrorctl.py` で `status/enable/disable/rotate` を実装。Pi Zero 設定のバックアップ→書き換え、SSH 経由のサービス再起動、mirror-compare.timer の制御、ログローテーションまで対応。

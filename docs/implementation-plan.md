@@ -46,7 +46,7 @@
 ## 3. 共通検証項目
 
 - **USB 運用**: INGEST → サーバー反映 → DIST エクスポート → 端末同期 → バックアップまでの一連テストを自動化する。
-- **データ整合性**: `mirror_compare.py` と PostgreSQL クエリで差分がないことを確認。
+- **データ整合性**: 日次チェックリスト（Pi Zero → API → DocumentViewer → USB）を用い、送信から表示までの一連フローを手動で検証する。
 - **ロールバック**: 各リポジトリで `git checkout main` / `docker compose down` / `systemctl disable` を実施し、旧構成へ復帰できるか確認。
 - **RUNBOOK**: 切替手順書、トラブルシュート、連絡フローをまとめ、現場共有する。
 
@@ -55,9 +55,9 @@
 | 時期 | 内容 | 判定基準 |
 | --- | --- | --- |
 | M1 | RaspberryPiServer の基盤実装完了 | Docker/systemd/ログが稼働し、USB スクリプトが手動で動作 |
-| M2 | ミラー運用開始 | OnSiteLogistics から二重送信が成功し、日次比較がスタート |
+| M2 | ミラー運用開始 | Pi Zero から RaspberryPiServer への送信が安定し、日次手動チェックがスタート |
 | M3 | DocumentViewer / 工具管理 UI の切替準備完了 | Socket.IO 接続先切替、DIST USB 運用が問題なく実行可能 |
-| M4 | 本番切替 | 14 日連続 OK、RUNBOOK 整備、ロールバック手順完了 |
+| M4 | 本番切替 | 手動チェックリストで 14 日連続 OK、RUNBOOK 整備、ロールバック手順完了 |
 | M5 | 旧環境の一定期間監視後に退役 | Window A のサーバー機能を停止し、アーカイブ化 |
 
 ### systemd / udev 導入メモ（現状の推奨手順）
@@ -88,6 +88,6 @@
   - `scripts/mirrorctl.py` で `status/enable/disable/rotate` を実装済み（Pi Zero 設定バックアップ・書き換え、SSH 経由のサービス再起動、mirror-compare.timer 制御、ログローテーション対応）。
   - 設定テンプレート `config/mirrorctl-config.sample.json` を配置。デプロイ先では `/etc/mirrorctl/config.json` へ展開予定。
   - systemd unit `systemd/mirror-compare.service` / `.timer` を追加し、日次実行の枠組みを整備。
-  - TODO: `mirror_compare.py` の拡張（差分検出指標の追加）と Pi Zero 側ミラー送信モード実装、mirrorctl の統合テストと RUNBOOK 監視手順の拡張。
+  - TODO: `mirror_compare.py` の拡張（健全性チェック指標の追加）と Pi Zero 側ミラー送信モード実装、mirrorctl の統合テストと RUNBOOK 手動検証手順の拡張。
 
 状況変化に応じて本ロードマップを更新し、進捗共有の基準とする。
