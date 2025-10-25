@@ -1,0 +1,10 @@
+{
+  "pi_zero_host": "onsite-handheld.local",
+  "ssh_user": "pi",
+  "config_path": "/etc/onsitelogistics/config.json",
+  "status_dir": "/var/lib/mirror",
+  "log_dir": "/srv/rpi-server/logs",
+  "ok_counter_file": "/var/lib/mirror/ok_counter",
+  "mirror_timer": "mirror-compare.timer",
+  "mirror_service": "mirror-compare.service"
+}
