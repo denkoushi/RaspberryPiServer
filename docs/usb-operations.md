@@ -250,6 +250,19 @@ WantedBy=multi-user.target
 - 仮想 USB メモリ（`tmpfs` / ループバック）を用いたインテグレーションテストを GitHub Actions or ローカルスクリプトで実施
 - テスト結果は `/srv/rpi-server/logs/test-report/` に保存し、定期的に棚卸しする
 
+### 8.8 主要スクリプトと環境変数
+
+| スクリプト | 主な用途 | 既定ディレクトリ / 環境変数 |
+| --- | --- | --- |
+| `tool-ingest-sync.sh` | INGEST USB → サーバー同期 | `SERVER_ROOT=/srv/rpi-server`, `SERVER_MASTER_DIR`, `SERVER_DOC_DIR` |
+| `tool-dist-export.sh` | サーバー → DIST USB へエクスポート | 同上 |
+| `tool-dist-sync.sh` | DIST USB → 端末ローカル同期 | `LOCAL_MASTER_DIR=/opt/toolmaster/master`, `LOCAL_DOC_DIR=/opt/toolmaster/docviewer` |
+| `tool-backup-export.sh` | スナップショットを BACKUP USB へ退避 | `SNAPSHOT_DIR=/srv/rpi-server/snapshots`, `BACKUP_RETENTION=4` |
+| `tool-snapshot.sh` | 日次スナップショット作成 | `SNAPSHOT_ROOT=/srv/rpi-server/snapshots`, `PG_URI` |
+| `lib/toolmaster-usb.sh` | 共通ライブラリ | `USB_LOG_DIR=/srv/rpi-server/logs`, `USB_MAX_RETRY=3` |
+
+運用環境に合わせて環境変数で上書きできるよう実装している。systemd unit からは `Environment=` 指定で渡す。
+
 ## 9. BACKUP 用 USB メモリ初期化とローテーション
 
 ### 9.1 初期化手順
