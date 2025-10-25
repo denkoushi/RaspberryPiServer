@@ -26,5 +26,7 @@
 
 ## 今後検討する項目
 
-- USB INGEST/DIST 運用手順とスクリプト改修（ラベル識別、容量超過時の分割手順、誤挿入検知）
-- バックアップ用 USB メモリの容量設計とスナップショット整理（保持世代、圧縮方式）
+- USB INGEST/DIST 運用手順とスクリプト改修（ラベル識別、容量超過時の分割手順、誤挿入検知）—詳細は `docs/usb-operations.md`
+- バックアップ用 USB メモリの容量設計とスナップショット整理（保持世代、圧縮方式）—詳細は `docs/usb-operations.md`
+- OnSiteLogistics ミラー送信モードおよび `mirrorctl` CLI の実装—詳細は `docs/mirror-verification.md`
+- 実装ロードマップに基づく各リポジトリのブランチ戦略と結合テスト計画—`docs/implementation-plan.md`
