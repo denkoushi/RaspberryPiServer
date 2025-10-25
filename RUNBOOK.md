@@ -57,6 +57,22 @@ sudo ln -sf /usr/local/toolmaster/bin/tool-backup-export.sh /usr/local/bin/tool-
 sudo ln -sf /usr/local/toolmaster/bin/tool-snapshot.sh /usr/local/bin/tool-snapshot.sh
 sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-usb.sh
 ```
+### 3.4 Docker/PostgreSQL セットアップ
+```bash
+# 依存パッケージ
+sudo apt install -y docker.io docker-compose-plugin postgresql-client
+
+# docker-compose.yml と .env の配置確認（例）
+cd ~/RaspberryPiServer
+cp .env.example .env  # 必要に応じて編集
+
+# Postgres コンテナ起動
+sudo docker compose up -d
+sudo docker compose ps
+
+# バックアップ連携（既存スナップショットと統合）
+# tool-backup-export.sh が /srv/rpi-server/snapshots を tar + zstd で退避
+```
 
 ## 4. ロールバック手順
 1. `sudo systemctl disable tool-snapshot.timer`

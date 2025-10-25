@@ -83,5 +83,7 @@
 - RUNBOOK/CHANGELOG の更新タイミングとレビュー体制
 - RUNBOOK 作成（systemd/udev 導入手順、USB 運用手順、ロールバック手順）のスケジュール化
 - 物理 USB メモリでの最終検証（TM-INGEST/DIST/BACKUP ラベル適用、ラベル固定方法）
+- Docker/PostgreSQL セットアップ（`docker-compose.yml`、`.env` 整備、バックアップ連携）
+- OnSiteLogistics ミラー (`mirrorctl`, `mirror-compare`) 実装と Pi Zero 設定更新 — 仕様案: `docs/mirrorctl-spec.md`
 
 状況変化に応じて本ロードマップを更新し、進捗共有の基準とする。
