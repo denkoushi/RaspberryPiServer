@@ -100,4 +100,56 @@
 - `mirrorctl` CLI の実装（Python または Bash）
 - 運用ドキュメント（RUNBOOK）への切替判断フロー追記
 
+## 9. `mirrorctl` CLI 仕様
+
+### 9.1 コマンド一覧
+
+| コマンド | 機能 | 主要処理 | 戻り値 |
+| --- | --- | --- | --- |
+| `mirrorctl enable` | ミラー送信開始 | Pi Zero 2 W へ `mirror_mode=true` を適用し、`mirror-compare.timer` を `systemctl enable --now` | 成功:0, 失敗:≠0 |
+| `mirrorctl disable` | ミラー送信停止 | `mirror_mode=false` を適用し、タイマーを無効化。ログをアーカイブ | 成功:0, 失敗:≠0 |
+| `mirrorctl status` | 現在状況表示 | OK カウンタ、最新比較結果、ミラー送信遅延の統計を表示 | 成功:0 |
+| `mirrorctl rotate` | ログローテーション | `mirror_requests.log`, `mirror_diff.log` を gzip 圧縮し、30 日より古いファイルを削除 | 成功:0 |
+
+### 9.2 設定ファイル
+
+- `/etc/mirrorctl/config.json`
+
+```json
+{
+  "pi_zero_host": "onsite-handheld.local",
+  "ssh_user": "pi",
+  "config_path": "/etc/onsitelogistics/config.json",
+  "status_dir": "/var/lib/mirror"
+}
+```
+
+### 9.3 ステータス表示フォーマット
+
+```
+Mirror Mode   : enabled
+OK Streak     : 5 days (target 14)
+Last Compare  : 2025-02-20 02:00 JST (OK)
+Last Diff     : 2025-02-17 02:00 JST (2 records)
+Avg Latency   : primary 110 ms / mirror 130 ms (24h)
+```
+
+### 9.4 テスト計画
+
+- 単体テスト
+  - `mirrorctl status` が設定ファイルから値を取得できるか（設定ファイル欠落時はエラー）
+  - SSH 通信失敗時のエラーハンドリング（タイムアウト、認証エラー）
+- 結合テスト
+  - ミラー有効化後、Pi Zero 2 W の設定が更新されるか（`jq` で `mirror_mode` を確認）
+  - タイマー起動後に `systemctl list-timers` で `mirror-compare.timer` が稼働しているか
+  - `mirrorctl disable` 実行後にカウンタ・設定が正しく停止するか
+- フェイルオーバーテスト
+  - 新サーバー停止状態で `mirrorctl enable` を実行し、エラーメッセージが適切か
+  - `mirrorctl rotate` が大きなログファイルを適切に圧縮・削除するか（テスト用ダミーファイルで検証）
+
+### 9.5 ログとエラー通知
+
+- `mirrorctl` 実行ログは `/srv/rpi-server/logs/mirrorctl.log` に保存。
+- エラー時には exit code とともに `journalctl` に出力し、必要に応じて LED 点滅や通知スクリプトへ連携する仕組みを用意する。
+
 本設計は基盤実装前のたたき台として扱い、進捗に応じて更新する。
