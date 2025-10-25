@@ -83,7 +83,10 @@
 - RUNBOOK/CHANGELOG の更新タイミングとレビュー体制
 - RUNBOOK 作成（systemd/udev 導入手順、USB 運用手順、ロールバック手順）のスケジュール化
 - 物理 USB メモリでの最終検証（TM-INGEST/DIST/BACKUP ラベル適用、ラベル固定方法）
-- Docker/PostgreSQL セットアップ（`docker-compose.yml`、`.env` 整備、バックアップ連携）— ローカル環境では Docker デーモン未起動のため未検証。Pi 上での確認手順は `docs/test-notes/2025-10-25-postgres-compose.md` を参照。
+- Docker/PostgreSQL セットアップ（`docker-compose.yml`、`.env` 整備、バックアップ連携）— **2025-10-25** に Raspberry Pi 上でコンテナ起動・スナップショット・USB バックアップまで検証済み。詳細ログは `docs/test-notes/2025-10-25-postgres-compose.md` を参照。残課題: Docker volume → SSD bind mount への切替。
 - OnSiteLogistics ミラー (`mirrorctl`, `mirror-compare`) 実装と Pi Zero 設定更新 — 仕様案: `docs/mirrorctl-spec.md`
+  - `scripts/mirrorctl.py` に CLI 骨格（`status/enable/disable/rotate`）を実装。`status` はローカル状態の確認のみ対応済み。
+  - 設定テンプレート `config/mirrorctl-config.sample.json` を配置。デプロイ先では `/etc/mirrorctl/config.json` へ展開予定。
+  - TODO: `enable/disable/rotate` の本実装（Pi Zero 設定反映、SSH 制御、ログローテーション）、`mirror-compare.sh` の実装、RUNBOOK への運用手順追記。
 
 状況変化に応じて本ロードマップを更新し、進捗共有の基準とする。
