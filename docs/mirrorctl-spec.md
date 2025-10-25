@@ -68,3 +68,4 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
 ### 実装メモ（2025-10-25 更新）
 - `scripts/mirrorctl.py` で `status/enable/disable/rotate` を実装。Pi Zero 設定のバックアップ→書き換え、SSH 経由のサービス再起動、mirror-compare.timer の制御、ログローテーションまで対応。
 - 設定テンプレートは `config/mirrorctl-config.sample.json` を参照し、`mirror_endpoint` や `pi_zero_service`、ログ保持日数などを調整可能。
+- systemd ユニット `systemd/mirror-compare.service` / `.timer` を用意し、`mirror_compare.py` を日次で実行できるようにした。

@@ -40,6 +40,7 @@ sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/
 sudo cp udev/90-toolmaster.rules /etc/udev/rules.d/
 sudo systemctl daemon-reload
 sudo systemctl enable --now tool-snapshot.timer
+sudo systemctl enable --now mirror-compare.timer
 sudo udevadm control --reload
 sudo udevadm trigger
 ```
@@ -201,6 +202,7 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 - `journalctl -t mirrorctl -n 50` で mirrorctl 実行ログを確認。
 - `journalctl -u mirror-compare.timer` / `mirror-compare.service` で定期比較の実行有無を確認。
 - OK カウンタ: `sudo cat /var/lib/mirror/ok_counter`
+- 初回セットアップ時は `sudo systemctl enable --now mirror-compare.timer` を実行し、`systemctl list-timers` で登録を確認する。
 
 **ミラー停止時のロールバック**
 1. `sudo mirrorctl disable`

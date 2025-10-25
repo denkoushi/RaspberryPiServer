@@ -87,6 +87,7 @@
 - OnSiteLogistics ミラー (`mirrorctl`, `mirror-compare`) 実装と Pi Zero 設定更新 — 仕様案: `docs/mirrorctl-spec.md`
   - `scripts/mirrorctl.py` で `status/enable/disable/rotate` を実装済み（Pi Zero 設定バックアップ・書き換え、SSH 経由のサービス再起動、mirror-compare.timer 制御、ログローテーション対応）。
   - 設定テンプレート `config/mirrorctl-config.sample.json` を配置。デプロイ先では `/etc/mirrorctl/config.json` へ展開予定。
+  - systemd unit `systemd/mirror-compare.service` / `.timer` を追加し、日次実行の枠組みを整備。
   - TODO: `mirror_compare.py` の拡張（差分検出指標の追加）と Pi Zero 側ミラー送信モード実装、mirrorctl の統合テストと RUNBOOK 監視手順の拡張。
 
 状況変化に応じて本ロードマップを更新し、進捗共有の基準とする。

@@ -1,0 +1,12 @@
+[Unit]
+Description=Mirror database comparison (legacy vs RaspberryPiServer)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mirror_compare.py --strict
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
