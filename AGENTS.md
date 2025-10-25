@@ -62,7 +62,8 @@
 - ミラー検証設計: `docs/mirror-verification.md`
 - 実装ロードマップ: `docs/implementation-plan.md`
 - テストログ: `docs/test-notes/2025-10-25-usb-loopback.md`
-- 運用手順: `RUNBOOK.md`（未作成）
+- テストログ（物理 USB）: `docs/test-notes/2025-10-25-physical-usb.md`
+- 運用手順: `RUNBOOK.md`
 - 障害対応テンプレート: `docs/incident-response.md`（必要に応じて新規作成）
 
 この指針を定期的に見直し、プロジェクトの進捗に合わせて更新してください。

@@ -66,8 +66,14 @@
 2. `sudo cp udev/90-toolmaster.rules /etc/udev/rules.d/`
 3. `sudo systemctl daemon-reload`
 4. `sudo systemctl enable --now tool-snapshot.timer`
-5. `sudo udevadm control --reload && sudo udevadm trigger`
-6. USB 挿入 → `journalctl -u usb-ingest@*` 等で起動確認
+5. `sudo mkdir -p /usr/local/toolmaster/bin /usr/local/toolmaster/lib`
+6. `sudo cp scripts/tool-*.sh /usr/local/toolmaster/bin/`
+7. `sudo cp lib/toolmaster-usb.sh /usr/local/toolmaster/lib/`
+8. `sudo chmod 755 /usr/local/toolmaster/bin/tool-*.sh`
+9. `sudo chmod 644 /usr/local/toolmaster/lib/toolmaster-usb.sh`
+10. `sudo ln -sf /usr/local/toolmaster/bin/tool-*.sh /usr/local/bin/`
+11. `sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-usb.sh`
+12. `sudo udevadm control --reload && sudo udevadm trigger`
 
 ## 5. オープン課題
 

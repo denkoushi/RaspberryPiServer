@@ -291,6 +291,8 @@ cd ~/RaspberryPiServer
 
 運用環境に合わせて環境変数で上書きできるよう実装している。systemd unit からは `Environment=` 指定で渡す。
 
+> 物理 USB での検証ログは `docs/test-notes/2025-10-25-physical-usb.md` を参照。
+
 ## 9. BACKUP 用 USB メモリ初期化とローテーション
 
 ### 9.1 初期化手順
