@@ -130,7 +130,9 @@ trap cleanup EXIT
 
 USB_MOUNT="$(usb_mount_device "${DEVICE}")" || exit 1
 
-if ! usb_validate_role "${USB_MOUNT}" "INGEST" "TOOLMASTER-INGEST"; then
+USB_INGEST_LABEL="${USB_INGEST_LABEL:-TM-INGEST}"
+
+if ! usb_validate_role "${USB_MOUNT}" "INGEST" "${USB_INGEST_LABEL}"; then
   usb_log "err" "validation failed for ${DEVICE}"
   exit 2
 fi

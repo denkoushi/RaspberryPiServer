@@ -87,7 +87,9 @@ trap cleanup EXIT
 
 USB_MOUNT="$(usb_mount_device "${DEVICE}")" || exit 1
 
-if ! usb_validate_role "${USB_MOUNT}" "DIST" "TOOLMASTER-DIST"; then
+USB_DIST_LABEL="${USB_DIST_LABEL:-TM-DIST}"
+
+if ! usb_validate_role "${USB_MOUNT}" "DIST" "${USB_DIST_LABEL}"; then
   usb_log "err" "validation failed for ${DEVICE}"
   exit 2
 fi

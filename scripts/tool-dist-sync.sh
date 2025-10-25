@@ -74,7 +74,9 @@ else
   USB_MOUNT="${MOUNTPOINT}"
 fi
 
-if ! usb_validate_role "${USB_MOUNT}" "DIST" "TOOLMASTER-DIST"; then
+USB_DIST_LABEL="${USB_DIST_LABEL:-TM-DIST}"
+
+if ! usb_validate_role "${USB_MOUNT}" "DIST" "${USB_DIST_LABEL}"; then
   usb_log "err" "validation failed for ${USB_MOUNT}"
   exit 2
 fi
