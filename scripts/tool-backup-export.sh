@@ -90,7 +90,9 @@ trap cleanup EXIT
 
 USB_MOUNT="$(usb_mount_device "${DEVICE}")" || exit 1
 
-if ! usb_validate_role "${USB_MOUNT}" "BACKUP" "TOOLMASTER-BACKUP"; then
+USB_BACKUP_LABEL="${USB_BACKUP_LABEL:-TM-BACKUP}"
+
+if ! usb_validate_role "${USB_MOUNT}" "BACKUP" "${USB_BACKUP_LABEL}"; then
   usb_log "err" "validation failed for ${DEVICE}"
   exit 2
 fi
