@@ -56,7 +56,7 @@
 
 ## 8. リンク集
 - ドキュメント運用ガイドライン: `documentation-guidelines.md`
-- 決定事項・要件管理: `docs/requirements.md`（未作成）
+- 決定事項・要件管理: `docs/requirements.md`
 - 運用手順: `RUNBOOK.md`（未作成）
 - 障害対応テンプレート: `docs/incident-response.md`（必要に応じて新規作成）
 
