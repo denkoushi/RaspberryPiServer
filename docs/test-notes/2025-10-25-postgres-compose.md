@@ -33,3 +33,29 @@ unable to get image 'postgres:15-alpine': Cannot connect to the Docker daemon at
 ## フォローアップ
 - 上記手順を Pi 上で実施した結果を追記し、成功時には RUNBOOK の Docker/PostgreSQL セクションへ詳細手順を反映させる。
 - テスト完了後、本ログに成功可否と確認日時を追記予定。
+
+## Raspberry Pi 実機検証ログ（2025-10-25 16:40 JST 更新）
+- ホスト: `denkons5ssd@raspberrypi`（Window E / RaspberryPiServer）
+- `.env`: `POSTGRES_USER=app`, `POSTGRES_PASSWORD=app`, `POSTGRES_DB=sensordb`（Window A と同一値）
+- Docker/Compose: `docker version 28.5.1`, `docker compose version v2.40.2`
+
+### 実施内容
+| # | 手順 | 結果 |
+|---|---|---|
+| 1 | `sudo systemctl status docker` | `active (running)` を確認（15:51 起動） |
+| 2 | `sudo docker compose pull` / `sudo docker compose up -d` | `postgres` イメージ取得後、`Health: healthy` まで遷移。`127.0.0.1:5432` を `ports:` で公開 |
+| 3 | `sudo docker volume inspect raspberrypiserver_postgres-data` | `Mountpoint=/var/lib/docker/volumes/raspberrypiserver_postgres-data/_data` を確認 |
+| 4 | `sudo docker exec -it postgres psql -U app -d sensordb -c '\l'` | `sensordb` を含む DB 一覧を取得 |
+| 5 | `sudo apt install -y postgresql-client` | `pg_dump` を導入 |
+| 6 | `sudo PG_URI="postgresql://app:app@localhost:5432/sensordb" tool-snapshot.sh --dest /srv/rpi-server/snapshots` | `2025-10-25_163002/db/pg_dump.sql` を生成 |
+| 7 | `sudo tool-backup-export.sh --device /dev/sdb1 --dry-run` | 最新スナップショットを検出、ログに `would archive` を出力 |
+| 8 | `sudo tool-backup-export.sh --device /dev/sdb1` | `2025-10-25_163002_full.tar.zst` をバックアップ USB に作成、ログに `backup export completed` を記録 |
+| 9 | `sync && sudo umount /run/toolmaster/verify` | バックアップ USB を安全に取り外し |
+
+### 発生した課題
+- `pg_dump` 未導入 → `postgresql-client` を追加して解決。
+- 初回はコンテナがポート公開されておらず `tool-snapshot.sh` で `localhost:5432` 接続が失敗。`docker-compose.yml` に `ports: "127.0.0.1:5432:5432"` を追記し再起動。
+
+### 残課題 / TODO
+- `docker-compose.yml` から廃止された `version` キーの削除検討。
+- `docs/requirements.md` で定義されている SSD bind mount（例: `/srv/rpi-server/postgres`）への切替は未実施。現状は Docker ボリューム利用。
