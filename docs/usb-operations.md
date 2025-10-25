@@ -110,7 +110,9 @@ sudo /usr/local/bin/tool-backup-export.sh --target /media/TM-BACKUP
 
 ### 7.1 udev ルール
 
-`/etc/udev/rules.d/90-toolmaster.rules`
+サンプル: `udev/90-toolmaster.rules`
+
+コピー先: `/etc/udev/rules.d/90-toolmaster.rules`
 
 ```
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TM-INGEST", \
@@ -120,14 +122,16 @@ ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TM-BACKUP", \
     ENV{SYSTEMD_WANTS}="usb-backup@%k.service"
 
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="TM-DIST", \
-    ENV{SYSTEMD_WANTS}="usb-dist-notify@%k.service"
+    ENV{SYSTEMD_WANTS}="usb-dist-export@%k.service"
 ```
 
-※ `TM-DIST` は端末側での自動実行用に使用する。サーバー側では通知のみ。
+> `TM-DIST` をサーバーに挿した場合は自動で最新データを書き出す運用。端末側で扱う場合は `tool-dist-sync.sh` を手動で実行する。
 
 ### 7.2 systemd unit テンプレート
 
-`/etc/systemd/system/usb-ingest@.service`
+サンプル: `systemd/usb-ingest@.service`
+
+設置先: `/etc/systemd/system/usb-ingest@.service`
 
 ```ini
 [Unit]
@@ -137,6 +141,8 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
+Environment=SERVER_ROOT=/srv/rpi-server
+Environment=USB_INGEST_LABEL=TM-INGEST
 ExecStart=/usr/local/bin/tool-ingest-sync.sh --device /dev/%I
 StandardOutput=journal
 StandardError=journal
@@ -145,7 +151,14 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-`usb-backup@.service` と `usb-dist-notify@.service` も同様に `ExecStart` のスクリプトを差し替えて用意する。
+同梱テンプレート:
+
+- `systemd/usb-backup@.service`
+- `systemd/usb-dist-export@.service`
+- `systemd/tool-snapshot.service`
+- `systemd/tool-snapshot.timer`
+
+配置後は `systemctl daemon-reload` を実行し、`systemctl enable --now tool-snapshot.timer` などで有効化する。
 
 ### 7.3 スクリプト構成
 

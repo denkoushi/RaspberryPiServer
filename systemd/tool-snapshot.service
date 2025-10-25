@@ -1,0 +1,14 @@
+[Unit]
+Description=Toolmaster daily snapshot
+Requires=local-fs.target
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Environment=SNAPSHOT_ROOT=/srv/rpi-server/snapshots
+ExecStart=/usr/local/bin/tool-snapshot.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
