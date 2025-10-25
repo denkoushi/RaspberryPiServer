@@ -60,11 +60,22 @@
 | M4 | 本番切替 | 14 日連続 OK、RUNBOOK 整備、ロールバック手順完了 |
 | M5 | 旧環境の一定期間監視後に退役 | Window A のサーバー機能を停止し、アーカイブ化 |
 
+### systemd / udev 導入メモ（現状の推奨手順）
+
+1. `sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/`
+2. `sudo cp udev/90-toolmaster.rules /etc/udev/rules.d/`
+3. `sudo systemctl daemon-reload`
+4. `sudo systemctl enable --now tool-snapshot.timer`
+5. `sudo udevadm control --reload && sudo udevadm trigger`
+6. USB 挿入 → `journalctl -u usb-ingest@*` 等で起動確認
+
 ## 5. オープン課題
 
 - USB スクリプト実装で必要なユーティリティ依存（`rsync`, `jq`, `tar`, `zstd`）のインストール手順
 - Pi Zero 2 W からの SSH／設定変更方法（`mirrorctl` との連携）をどう自動化するか
 - SSD バックアップの保管場所（物理保管先、A/B ローテーション）と責任者
 - RUNBOOK/CHANGELOG の更新タイミングとレビュー体制
+- RUNBOOK 作成（systemd/udev 導入手順、USB 運用手順、ロールバック手順）のスケジュール化
+- 物理 USB メモリでの最終検証（TM-INGEST/DIST/BACKUP ラベル適用、ラベル固定方法）
 
 状況変化に応じて本ロードマップを更新し、進捗共有の基準とする。
