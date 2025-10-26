@@ -33,10 +33,11 @@
    - systemd 環境ファイル（`/etc/default/raspi-server`）で `VIEWER_DOCS_DIR` / `VIEWER_API_TOKEN` / `VIEWER_CORS_ORIGINS` を設定できるようにした。  
    - ※ UI ルート `/viewer` は未実装。Window A 側でクライアント UI を配信する場合は不要。必要に応じて別工程で追加する。
 
-4. **Socket.IO イベント送出** ⏳ 対応中  
-   - `Flask-SocketIO` / `gevent` (+ `gevent-websocket`) で `/api/v1/scans` 成功時に `part_location_updated` / `scan_update` を broadcast する実装を進行中。  
-   - `gunicorn` を `geventwebsocket` ワーカーで起動するところまで反映済みだが、コンテナ内クライアントからの接続時に `ConnectionError` が発生しており切り分け中。  
-   - 次ステップ: 旧システム（tool-management-system02）と同じ Flask / Socket.IO バージョン構成を比較し、依存関係・起動方式を揃えて通信を安定させる。クライアント（Window A）での受信・ハンドリングはその後に着手。
+4. **Socket.IO イベント送出** ✅ 2025-10-26 完了  
+   - `Flask-SocketIO` / `gevent` (+ `gevent-websocket`) を採用し、`/api/v1/scans` 成功時に `part_location_updated` / `scan_update` を broadcast。  
+   - 依存不足で発生していた `ConnectionError` を解消するため `websocket-client==1.8.0` を追加。  
+   - RaspberryPiServer 上で `docker compose exec -T app python /app/tests/socketio_listener.py` → `curl -X POST http://127.0.0.1:8501/api/v1/scans ...` の手動確認によりイベント受信を検証済み。  
+   - Window A のクライアント側実装へ Socket.IO エンドポイントを切り替える作業は別途対応する。
 
 5. **Window A 側の調整**
    - DocumentViewer クライアント（Window A）を RaspberryPiServer の `/viewer` へ向けるか、Window A 側 Flask をクライアント専用に縮退させる。
