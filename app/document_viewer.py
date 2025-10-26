@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timezone
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
@@ -29,9 +31,57 @@ def _get_docs_root() -> Path:
 DOCUMENTS_ROOT = _get_docs_root()
 VIEWER_API_TOKEN = os.getenv("VIEWER_API_TOKEN", "").strip()
 VIEWER_CORS_ORIGINS = os.getenv("VIEWER_CORS_ORIGINS", "*").strip() or "*"
+VIEWER_LOG_PATH_RAW = os.getenv(
+    "VIEWER_LOG_PATH",
+    "/srv/rpi-server/logs/document_viewer.log",
+).strip()
+VIEWER_LOG_PATH = None if not VIEWER_LOG_PATH_RAW else Path(VIEWER_LOG_PATH_RAW).resolve()
+
+
+def _configure_logger() -> logging.Logger:
+    logger = logging.getLogger("document_viewer")
+    logger.setLevel(logging.INFO)
+    for handler in list(logger.handlers):
+        if getattr(handler, "_document_viewer_handler", False):
+            logger.removeHandler(handler)
+            try:
+                handler.close()
+            except Exception:  # pylint: disable=broad-except
+                pass
+
+    if VIEWER_LOG_PATH is None:
+        return logger
+
+    try:
+        VIEWER_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return logger
+
+    handler = RotatingFileHandler(
+        VIEWER_LOG_PATH,
+        maxBytes=5 * 1024 * 1024,
+        backupCount=5,
+    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    handler._document_viewer_handler = True  # type: ignore[attr-defined]
+    logger.addHandler(handler)
+    return logger
+
+
+LOGGER = _configure_logger()
 
 
 document_viewer_bp = Blueprint("document_viewer", __name__)
+
+
+def _log_info(message: str, *args) -> None:
+    LOGGER.info(message, *args)
+    current_app.logger.info(message, *args)
+
+
+def _log_warning(message: str, *args) -> None:
+    LOGGER.warning(message, *args)
+    current_app.logger.warning(message, *args)
 
 
 def _to_cache_busting_url(filename: str) -> str:
@@ -44,14 +94,14 @@ def _find_document(part_number: str) -> Optional[str]:
     if not normalized:
         return None
 
-    direct = DOCUMENTS_ROOT / f"{normalized}.pdf"
-    if direct.exists():
-        return direct.name
-
     lower = normalized.lower()
     for candidate in DOCUMENTS_ROOT.glob("*.pdf"):
         if candidate.stem.lower() == lower:
             return candidate.name
+
+    direct = DOCUMENTS_ROOT / f"{normalized}.pdf"
+    if direct.exists():
+        return direct.name
     return None
 
 
@@ -87,10 +137,10 @@ def get_document(part_number: str):
 
     filename = _find_document(part_number)
     if not filename:
-        current_app.logger.info("Document not found: %s", part_number)
+        _log_info("Document not found: %s", part_number)
         return jsonify({"found": False, "message": "document not found"}), 404
 
-    current_app.logger.info("Document lookup success: %s -> %s", part_number, filename)
+    _log_info("Document lookup success: %s -> %s", part_number, filename)
     url = _to_cache_busting_url(filename)
     return jsonify(
         {
@@ -106,5 +156,6 @@ def get_document(part_number: str):
 def serve_document(filename: str):
     safe_path = (DOCUMENTS_ROOT / filename).resolve()
     if not safe_path.is_file() or DOCUMENTS_ROOT not in safe_path.parents:
+        _log_warning("Invalid document access attempt: %s", filename)
         abort(404)
     return send_from_directory(DOCUMENTS_ROOT, filename, mimetype="application/pdf")

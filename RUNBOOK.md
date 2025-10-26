@@ -159,6 +159,7 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 - コンテナが `unhealthy`: `sudo docker logs postgres` で原因を特定。`POSTGRES_PASSWORD` を変更した場合は `postgres-data` をリセットする必要がある。
 - `pg_dump` コマンド未検出: `sudo apt install postgresql-client` を再実行し、PATH に `/usr/bin` を含める。
 - バックアップ USB を認識しない: `lsblk` でデバイスを確認し、`/etc/udev/rules.d/90-toolmaster.rules` のラベル定義を再確認。
+- DocumentViewer ログ（`/srv/rpi-server/logs/document_viewer.log`）に書き込みできない: `sudo ls -ld /srv/rpi-server/logs` でパーミッションと SSD マウントを確認。必要に応じて `sudo chown -R pi:pi /srv/rpi-server/logs` を実行し、Docker 再起動後に再試行する。
 
 **ロールバック**
 1. `sudo docker compose down` でコンテナを停止。
@@ -186,6 +187,12 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
   curl -s http://127.0.0.1:8501/healthz
   ```
   戻り値が `{"status":"ok"}` であれば正常。失敗時は `sudo docker logs app` を確認し、`.env` の `DATABASE_URL` / `API_TOKEN` を点検する。
+- DocumentViewer API/ログ確認  
+  ```bash
+  curl -s http://127.0.0.1:8501/api/documents/testpart | jq
+  tail -n 20 /srv/rpi-server/logs/document_viewer.log
+  ```
+  期待される結果: JSON に `found: true` が含まれ、ログには `Document lookup success` が追記される。404 応答時もログへ `Document not found` が記録される。ログが生成されない場合は `VIEWER_LOG_PATH` 環境変数と Docker bind mount (`/srv/rpi-server/logs`) を確認。
 - API テスト（Bearer トークン無しの場合）  
   ```bash
   curl -s -X POST http://127.0.0.1:8501/api/v1/scans \

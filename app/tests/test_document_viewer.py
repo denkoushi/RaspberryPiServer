@@ -13,6 +13,8 @@ def viewer_module(monkeypatch, tmp_path):
     sample_pdf = docs_dir / "TestPart.pdf"
     sample_pdf.write_bytes(b"%PDF-1.4\n%Test Document\n")
 
+    log_path = tmp_path / "logs" / "document_viewer.log"
+    monkeypatch.setenv("VIEWER_LOG_PATH", str(log_path))
     monkeypatch.setenv("VIEWER_DOCS_DIR", str(docs_dir))
     monkeypatch.setenv("VIEWER_CORS_ORIGINS", "http://example.com")
     monkeypatch.delenv("VIEWER_API_TOKEN", raising=False)
@@ -25,7 +27,7 @@ def viewer_module(monkeypatch, tmp_path):
     app.config["TESTING"] = True
     app.register_blueprint(module.document_viewer_bp)
 
-    return SimpleNamespace(module=module, app=app, pdf=sample_pdf)
+    return SimpleNamespace(module=module, app=app, pdf=sample_pdf, log_path=log_path)
 
 
 def test_get_document_success(viewer_module):
@@ -38,6 +40,8 @@ def test_get_document_success(viewer_module):
     assert body["filename"] == viewer_module.pdf.name
     assert body["url"].startswith("/documents/")
     assert response.headers["Access-Control-Allow-Origin"] == "http://example.com"
+    _flush_log_handlers(viewer_module.module)
+    assert "Document lookup success: TestPart -> TestPart.pdf" in viewer_module.log_path.read_text()
 
 
 def test_get_document_case_insensitive(viewer_module):
@@ -45,6 +49,8 @@ def test_get_document_case_insensitive(viewer_module):
     response = client.get("/api/documents/testpart")
     assert response.status_code == 200
     assert response.get_json()["found"] is True
+    _flush_log_handlers(viewer_module.module)
+    assert "Document lookup success: testpart -> TestPart.pdf" in viewer_module.log_path.read_text()
 
 
 def test_get_document_trims_whitespace(viewer_module):
@@ -60,6 +66,8 @@ def test_get_document_not_found(viewer_module):
 
     assert response.status_code == 404
     assert response.get_json()["found"] is False
+    _flush_log_handlers(viewer_module.module)
+    assert "Document not found: unknown" in viewer_module.log_path.read_text()
 
 
 def test_get_document_requires_token(viewer_module, monkeypatch):
@@ -96,6 +104,8 @@ def test_serve_document_rejects_traversal(viewer_module):
     client = viewer_module.app.test_client()
     response = client.get("/documents/../../etc/passwd")
     assert response.status_code == 404
+    _flush_log_handlers(viewer_module.module)
+    assert "Invalid document access attempt: ../../etc/passwd" in viewer_module.log_path.read_text()
 
 
 def test_options_request_returns_cors_headers(viewer_module):
@@ -106,3 +116,7 @@ def test_options_request_returns_cors_headers(viewer_module):
     assert response.headers["Access-Control-Allow-Origin"] == "http://example.com"
     assert response.headers["Access-Control-Allow-Headers"] == "Authorization, Content-Type"
     assert response.headers["Access-Control-Allow-Methods"] == "GET, OPTIONS"
+def _flush_log_handlers(module):
+    for handler in module.LOGGER.handlers:
+        handler.flush()
+

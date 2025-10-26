@@ -102,6 +102,8 @@ def server_module(monkeypatch, tmp_path):
     docs_dir = tmp_path / "documents"
     docs_dir.mkdir()
     monkeypatch.setenv("VIEWER_DOCS_DIR", str(docs_dir))
+    monkeypatch.setenv("VIEWER_LOG_PATH", str(tmp_path / "viewer.log"))
+    sys.modules.pop("app.document_viewer", None)
     socketio_module = ModuleType("flask_socketio")
     socketio_module.SocketIO = SocketIOStub
     monkeypatch.setitem(sys.modules, "flask_socketio", socketio_module)
