@@ -20,7 +20,7 @@
 
 ## 3. 日次チェックリスト
 
-以下の手順を 1 セットとして実施し、チェックリスト（`scripts/create_mirror_check_note.sh` でテンプレートをコピー）に記録する。
+以下の手順を 1 セットとして実施し、チェックリスト（`scripts/create_mirror_check_note.sh` を利用。`--date` や `--force` で日付調整可）に記録する。
 
 0. **事前チェック（切替準備）**  
    - Window A、Pi Zero が最新ブランチで設定済みか `docs/status/2025-10-26-client-cutover.md` を参照。  
