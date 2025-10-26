@@ -8,6 +8,7 @@
 - RaspberryPiServer は API／PostgreSQL／Socket.IO／USB 配布・バックアップを一元的に提供し、Pi Zero 2 W（ハンディリーダ）からの送信を唯一の受信点とする。
 - Pi Zero 2 W はハンディリーダ専用端末として運用し、`mirrorctl`／`mirror_compare` の 14 日連続チェックをクリアした状態で本番切替を完了する。
 - 上記役割分担を支える RUNBOOK・手順書・ systemd / USB 運用を整備し、旧 Window A サーバー環境を退役できる状態にする。
+- Pi Zero 側のクライアント設定は `scripts/install_client_config.sh` で自動生成できるよう整備済み（OnSiteLogistics リポジトリを参照）。
 
 ## 移行タスク（旧 Window A サーバー縮退計画）
 
