@@ -158,6 +158,31 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 - `/srv/rpi-server/snapshots/latest/db/pg_dump.sql` のタイムスタンプとサイズを確認。
 - USB （`/media/TM-BACKUP` 等）に生成された `*_full.tar.zst` のサイズを記録し、保管ログへ転記。
 
+#### 3.4.1 REST API (app サービス) の管理
+
+- 起動／停止  
+  ```bash
+  sudo docker compose up -d app
+  sudo docker compose stop app
+  ```
+- 状態確認  
+  ```bash
+  sudo docker compose ps app
+  sudo docker logs app
+  ```
+- ヘルスチェック  
+  ```bash
+  curl -s http://127.0.0.1:8501/healthz
+  ```
+  戻り値が `{"status":"ok"}` であれば正常。失敗時は `sudo docker logs app` を確認し、`.env` の `DATABASE_URL` / `API_TOKEN` を点検する。
+- API テスト（Bearer トークン無しの場合）  
+  ```bash
+  curl -s -X POST http://127.0.0.1:8501/api/v1/scans \
+    -H 'Content-Type: application/json' \
+    -d '{"part_code":"TEST-001","location_code":"SHELF-01"}'
+  ```
+  201 が返り `accepted: true` であれば成功。トークンを有効化している場合は `-H "Authorization: Bearer <token>"` を追加する。
+
 ### 3.5 mirrorctl 運用（ミラー送信制御）
 
 **前提**
