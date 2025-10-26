@@ -67,6 +67,7 @@
 - テストログ（PostgreSQL Compose）: `docs/test-notes/2025-10-25-postgres-compose.md`
 - テスト計画（mirrorctl/mirror_compare）: `docs/test-notes/2025-10-25-mirrorctl-integration-plan.md`
 - テストログ（Docker Compose app サービス）: `docs/test-notes/2025-10-26-app-compose.md`
+- DocumentViewer サーバー移行計画: `docs/documentviewer-migration.md`
 - 運用手順: `RUNBOOK.md`
 - 障害対応テンプレート: `docs/incident-response.md`（必要に応じて新規作成）
 
