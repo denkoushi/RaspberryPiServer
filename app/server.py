@@ -16,7 +16,7 @@ DATABASE_URL = os.getenv(
 )
 API_TOKEN = os.getenv("API_TOKEN", "")
 SOCKETIO_CORS_ORIGINS = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
-socketio = SocketIO(cors_allowed_origins=SOCKETIO_CORS_ORIGINS)
+socketio = SocketIO(cors_allowed_origins=SOCKETIO_CORS_ORIGINS, async_mode="gevent")
 
 
 def create_app() -> Flask:

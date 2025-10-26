@@ -2,8 +2,7 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    POETRY_VIRTUALENVS_CREATE=false \
-    EVENTLET_NO_GREENDNS=yes
+    POETRY_VIRTUALENVS_CREATE=false
 
 WORKDIR /app
 
@@ -16,4 +15,4 @@ COPY app /app
 
 ENV PORT=8501
 
-CMD ["gunicorn", "-k", "eventlet", "-w", "1", "-b", "0.0.0.0:8501", "server:app"]
+CMD ["gunicorn", "-k", "gevent", "-w", "1", "-b", "0.0.0.0:8501", "server:app"]
