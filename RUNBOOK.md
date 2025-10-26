@@ -127,7 +127,18 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
    **想定結果**: `/srv/rpi-server/snapshots/yyyymmdd_hhmmss/db/pg_dump.sql` が作成される。ログに `snapshot completed` が出力。  
    **エラー時の確認**: `pg_dump` が見つからない場合は `postgresql-client` のインストールと `PATH` を確認。接続拒否の場合は `pg_hba.conf` 等を調整。
 
-8. バックアップ書き出し（dry-run）  
+8. systemd サービス導入  
+   **コマンド**
+   ```bash
+   sudo install -m 644 systemd/raspi-server.service /etc/systemd/system/raspi-server.service
+   sudo install -m 640 config/raspi-server.env.sample /etc/default/raspi-server
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now raspi-server.service
+   ```
+   **想定結果**: `systemctl status raspi-server.service` が `Active: active (exited)` を示し、`docker compose ps` で `postgres` / `raspberrypiserver-app-1` が起動済み。  
+   **エラー時の確認**: `journalctl -u raspi-server.service` で詳細を確認。`WorkingDirectory`（デフォルト `/srv/rpi-server`）や `.env` の配置 `/srv/rpi-server/.env` を再確認。
+
+9. バックアップ書き出し（dry-run）  
    **コマンド**
    ```bash
    sudo tool-backup-export.sh --device /dev/sdX1 --dry-run
@@ -135,7 +146,7 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
    **想定結果**: 最新スナップショットのアーカイブ計画がログに出力され、USB への書き込みは行われない。  
    **エラー時の確認**: `validation failed` が出た場合は USB のラベルと `/.toolmaster/role` を確認する。
 
-9. 本番バックアップ  
+10. 本番バックアップ  
    **コマンド**
    ```bash
    sudo tool-backup-export.sh --device /dev/sdX1

@@ -35,3 +35,4 @@
 - Pi Zero の `/etc/hosts` へ `192.168.128.128 raspi-server.local` を追記し名前解決を行った。
 - 今後、本番運用時は `.env` に `API_TOKEN` を設定し、Pi Zero 側でも同一トークンを利用する。
 - エラーハンドリング（必須項目不足、400/500 応答時の再送挙動）は別タスクで追加検証予定。
+- Docker Compose を systemd (`raspi-server.service`) で管理するためのユニットを追加。`/etc/systemd/system/raspi-server.service` へ設置し、`sudo systemctl enable --now raspi-server.service` で常駐化する。
