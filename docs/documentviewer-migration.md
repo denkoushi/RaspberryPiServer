@@ -43,6 +43,7 @@
 5. **Window A 側の調整**
    - DocumentViewer クライアント（Window A）を RaspberryPiServer の `/viewer` へ向けるか、Window A 側 Flask をクライアント専用に縮退させる。
    - `DOCUMENT_VIEWER_URL` を `http://raspi-server.local:8501/viewer` に更新。
+   - `/etc/default/docviewer` は DocumentViewer リポジトリの `config/docviewer.env.sample` をベースに作成し、`VIEWER_API_BASE` / `VIEWER_SOCKET_BASE` / `VIEWER_LOCAL_DOCS_DIR` / `VIEWER_LOG_PATH` などを設定する。
    - API トークンを RaspberryPiServer 側に合わせて再発行し、環境変数 `VIEWER_API_TOKEN` を DocumentViewer フロント／tool-management-system02 双方で設定。
    - DocumentViewer リポジトリ側で `VIEWER_SOCKET_*` 環境変数に対応し、`part_location_updated` 受信時に PDF を自動表示できるようにした（2025-10-26）。
 
