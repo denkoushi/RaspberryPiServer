@@ -65,7 +65,7 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 **前提**
 - Docker/Compose と `postgresql-client` がインストール済みで `docker` サービスが起動している。
 - リポジトリは `/srv/rpi-server` に配置し、`.env` は `POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB` を本番値へ更新済み。
-- `docker-compose.yml` の `postgres` サービスは `ports: ["127.0.0.1:5432:5432"]` でホストへ公開されている（`tool-snapshot.sh` が `localhost` へ接続するため必須）。
+- `docker-compose.yml` の `postgres` サービスは `ports: ["0.0.0.0:15432:5432"]` 等でホストへ公開されている（`tool-snapshot.sh` がホストから接続するため必須）。
 - SSD（例: `/srv/rpi-server`）が bind mount されており、`/srv/rpi-server/snapshots` へ書き込み可能。
 
 **セットアップ手順**
@@ -122,7 +122,7 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 7. スナップショット実行  
    **コマンド**
    ```bash
-   sudo PG_URI="postgresql://USER:PASSWORD@localhost:5432/DB" tool-snapshot.sh --dest /srv/rpi-server/snapshots
+   sudo PG_URI="postgresql://USER:PASSWORD@127.0.0.1:15432/DB" tool-snapshot.sh --dest /srv/rpi-server/snapshots
    ```
    **想定結果**: `/srv/rpi-server/snapshots/yyyymmdd_hhmmss/db/pg_dump.sql` が作成される。ログに `snapshot completed` が出力。  
    **エラー時の確認**: `pg_dump` が見つからない場合は `postgresql-client` のインストールと `PATH` を確認。接続拒否の場合は `pg_hba.conf` 等を調整。

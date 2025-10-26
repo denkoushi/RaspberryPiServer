@@ -27,7 +27,7 @@
    - ハンディリーダでサンプルの部品票 + 棚を読み取る。成功時の確認音・表示を記録。
 2. **サーバー確認**  
    - `sudo tail -n 3 /srv/rpi-server/logs/mirror_requests.log` で最新エントリを確認。  
-   - `PGPASSWORD=app psql -h localhost -U app -d sensordb -c "SELECT order_code, location_code, updated_at FROM part_locations ORDER BY updated_at DESC LIMIT 1;"` で更新を確認。  
+   - `PGPASSWORD=app psql -h 127.0.0.1 -p 15432 -U app -d sensordb -c "SELECT order_code, location_code, updated_at FROM part_locations ORDER BY updated_at DESC LIMIT 1;"` で更新を確認。  
    - `sudo /usr/local/bin/mirror_compare.py --strict` を実行し、`mirror_status.log` に `status: OK` が追記されることを確認（エラー時は専用欄に記録）。
 3. **DocumentViewer**  
    - UI の所在一覧が更新されるか、または該当オーダーが表示されるかを確認。  

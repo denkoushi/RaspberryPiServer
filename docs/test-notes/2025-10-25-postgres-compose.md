@@ -26,7 +26,7 @@ unable to get image 'postgres:15-alpine': Cannot connect to the Docker daemon at
 2. `.env` の配置見直し: `/srv/rpi-server`（想定配置先）へリポジトリ一式を配置し `.env` を最新化。
 3. コンテナ起動: `sudo docker compose up -d` → `sudo docker compose ps` の順でヘルスチェック列が `healthy` になることを確認。
 4. データ永続化確認: `sudo docker volume inspect postgres-data` で `Mountpoint` を確認し、`/var/lib/docker/volumes/postgres-data/_data` が生成されているかをチェック。
-5. `tool-snapshot.sh` との連携: `sudo PG_URI="postgresql://app:app_password@localhost:5432/appdb" tool-snapshot.sh --dest /srv/rpi-server/snapshots` を実行し、`pg_dump` が成功することを確認（必要に応じて環境変数で `PATH` に `/usr/bin` などを追加）。
+5. `tool-snapshot.sh` との連携: `sudo PG_URI="postgresql://app:app_password@127.0.0.1:15432/appdb" tool-snapshot.sh --dest /srv/rpi-server/snapshots` を実行し、`pg_dump` が成功することを確認（必要に応じて環境変数で `PATH` に `/usr/bin` などを追加）。
 6. `tool-backup-export.sh` のリハーサル: `--dry-run` 付きで実行し、最新スナップショットを検出できることを確認。完全実行はバックアップ USB (`TM-BACKUP`) 挿入後に行う。
 7. バックアップディレクトリの点検: `/srv/rpi-server/snapshots/*/db/pg_dump.sql` が生成され、USB 側に `*_full.tar.zst` が作成されることを確認。
 
@@ -52,9 +52,11 @@ unable to get image 'postgres:15-alpine': Cannot connect to the Docker daemon at
 | 8 | `sudo tool-backup-export.sh --device /dev/sdb1` | `2025-10-25_163002_full.tar.zst` をバックアップ USB に作成、ログに `backup export completed` を記録 |
 | 9 | `sync && sudo umount /run/toolmaster/verify` | バックアップ USB を安全に取り外し |
 
+> ※ 当時はホスト側ポートが `5432` だったため上記コマンドを使用。2025-10-26 以降は `postgresql://...@127.0.0.1:15432/...` を利用する。
+
 ### 発生した課題
 - `pg_dump` 未導入 → `postgresql-client` を追加して解決。
-- 初回はコンテナがポート公開されておらず `tool-snapshot.sh` で `localhost:5432` 接続が失敗。`docker-compose.yml` に `ports: "127.0.0.1:5432:5432"` を追記し再起動。
+- 初回はコンテナがポート公開されておらず `tool-snapshot.sh` で `localhost:5432` 接続が失敗。`docker-compose.yml` に `ports: "127.0.0.1:5432:5432"` を追記し再起動。※ 2025-10-26 にホスト側ポートを `15432` へ変更済み。
 
 ### 残課題 / TODO
 - `docker-compose.yml` から廃止された `version` キーの削除検討。

@@ -41,9 +41,12 @@
 - 22:12 `sudo mirrorctl enable` → `mirror-compare.service` が `status=0/SUCCESS`。
 - 22:13 `sudo /usr/local/bin/mirror_compare.py --dry-run` → `diff_count=0`、`ok_streak=1` を確認。
 
+> ※ 2025-10-26 にホスト公開ポートを `15432` へ切り替え済み。以降の接続確認は `127.0.0.1:15432` を利用する。
+
 ## 参考ログ（2025-10-26 実施）
 - `sudo mirrorctl enable` → `mirror-compare.service` が `status=0/SUCCESS`、`mirror-compare.timer` が `active (waiting)`。
 - `sudo docker compose down && sudo docker compose up -d` で Postgres ボリュームを再作成し、`curl http://127.0.0.1:8501/healthz` でアプリ正常を確認。
 - Pi Zero (`handheld_scan_display.py`) から 3 件のスキャンを送信し、`raspi-server.local` の `/api/v1/scans` が全件受理、`~/.onsitelogistics/scan_queue.db` は 0 件。
 - RaspberryPiServer の `postgres` コンテナで `SELECT order_code, location_code FROM part_locations ORDER BY updated_at DESC LIMIT 5;` を実行し、Pi Zero 送信分が反映されていることを確認。
 - Pi Zero の `/etc/onsitelogistics/config.json` に RaspberryPiServer 用 API トークンを再設定し、再送時のエラーが解消されることを確認。
+- 03:31 `sudo /usr/local/bin/mirror_compare.py --strict` → `status: OK`, `ok_streak: 2`。PostgreSQL をホスト `127.0.0.1:15432` で公開し、`mirrorctl status` でも OK カウンタが 2 へ更新されたことを確認。

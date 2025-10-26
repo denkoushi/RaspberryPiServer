@@ -87,7 +87,7 @@ USB メモリの流れは以下のとおり。
 
 - RaspberryPiServer（Window E）
   - Flask + Socket.IO: `:8501`
-  - PostgreSQL: `127.0.0.1:5432`（Docker 内部）
+  - PostgreSQL: `127.0.0.1:15432`（Docker 経由でホスト公開）
   - 管理用 SSH: `:22`（LAN 内運用前提）
 - OnSiteLogistics（Window D）
   - Wi-Fi（2.4 GHz）でサーバーへ HTTP POST（`/api/v1/scans`）
