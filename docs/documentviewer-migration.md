@@ -17,6 +17,7 @@
 - CORS 設定を有効化し、Window A（DocumentViewer クライアント）が `http://raspi-server.local:8501` へ fetch してもブロックされないようにする。
 - 認証が必要な場合に備え、API トークン（`VIEWER_API_TOKEN`）を Bearer で受け付ける仕組みを実装（DocumentViewer フロントから送信）。
 - RaspberryPiServer 側へログを統合し、`/srv/rpi-server/logs/document_viewer.log` へアクセスログを残す。
+- Window A クライアントのログ（`/var/log/document-viewer/client.log`）は DocumentViewer リポジトリの `docs/test-notes/2025-10-26-docviewer-env.md` を参照して設定し、サーバー側とあわせて 14 日チェックで確認する。
 
 ## 3. 実装ステップ
 

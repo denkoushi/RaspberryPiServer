@@ -17,7 +17,7 @@
 | Impl-1 | Docker Compose, systemd ユニット、ログ設計の実装 | `feature/server-stack` | `systemctl status`、`docker compose ps` |
 | Impl-2 | USB スクリプト（INGEST/DIST/BACKUP）と udev 連携 | `feature/usb-scripts` | テスト用ループバックデバイスで差分検証 |
 | Impl-3 | ミラー比較スクリプト、`mirrorctl` CLI | `feature/mirror-tools` | 日次比較のシミュレーション、ログ確認 |
-| QA | 結合テスト（DocumentViewer・OnSiteLogistics と接続） | `qa/server-cutover` | 手動チェックリスト、RUNBOOK 作成 |
+| QA | 結合テスト（DocumentViewer・OnSiteLogistics と接続） | `qa/server-cutover` | 手動チェックリスト、RUNBOOK 作成（DocumentViewer ログ確認含む） |
 
 ### 2.2 tool-management-system02（Window A）
 

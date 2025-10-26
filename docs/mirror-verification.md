@@ -36,7 +36,8 @@
    - `sudo /usr/local/bin/mirror_compare.py --strict` を実行し、`mirror_status.log` に `status: OK` が追記されることを確認（エラー時は専用欄に記録）。
 3. **DocumentViewer**  
    - UI の所在一覧が更新されるか、または該当オーダーが表示されるかを確認。  
-   - 必要に応じて Screenshot またはログに証跡を残す。
+   - `VIEWER_LOG_PATH`（例: `/var/log/document-viewer/client.log`）を `tail -n 20` で確認し、`Document lookup success` / `Document not found` などの記録が残っているかをチェック。  
+   - 必要に応じて Screenshot またはログに証跡を残し、`docs/test-notes/2025-10-26-docviewer-env.md` に追記する。
 4. **USB フロー**  
    - `sudo mirrorctl rotate`（必要に応じて）でログを整備した後、`tool-dist-sync.sh` など既存手順で DIST USB を作成。  
    - 対象端末で USB を読み込み、最新データが反映されることを確認。
@@ -74,7 +75,9 @@
 
 - 日次チェックの結果は `docs/test-notes/` に日付ごとのログファイル（例: `2025-11-01-mirror-check.md`）として保存する。  
 - 14 日連続で「全項目 OK」を達成したら、Decision Log に実施期間と判定者を追記し、RUNBOOK に切替作業のチェックリストを掲載する。  
-- 途中で NG が発生した場合はカウントをリセットし、原因と再発防止策を次回検証の冒頭で共有する。
+- 途中で NG が発生した場合はカウントをリセットし、原因と再発防止策を次回検証の冒頭で共有する。  
+  - DocumentViewer のログについては `/var/log/document-viewer/client.log` を 14 日間分保存し、必要に応じて ZIP 化してバックアップする。
+  - 保存時は DocumentViewer リポジトリ側の `docs/test-notes/2025-10-26-docviewer-env.md` に沿ってログディレクトリを確認し、必要なら `sudo journalctl -u docviewer.service` の抜粋も添付する。
 
 ## 8. 今後の拡張案
 

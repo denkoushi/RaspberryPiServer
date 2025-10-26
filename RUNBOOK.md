@@ -160,6 +160,7 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 - `pg_dump` コマンド未検出: `sudo apt install postgresql-client` を再実行し、PATH に `/usr/bin` を含める。
 - バックアップ USB を認識しない: `lsblk` でデバイスを確認し、`/etc/udev/rules.d/90-toolmaster.rules` のラベル定義を再確認。
 - DocumentViewer ログ（`/srv/rpi-server/logs/document_viewer.log`）に書き込みできない: `sudo ls -ld /srv/rpi-server/logs` でパーミッションと SSD マウントを確認。必要に応じて `sudo chown -R pi:pi /srv/rpi-server/logs` を実行し、Docker 再起動後に再試行する。
+- Window A クライアントの `/etc/default/docviewer` を更新したのに反映されない: 設定テンプレートは DocumentViewer リポジトリの `config/docviewer.env.sample`。`sudo systemctl restart docviewer.service` 実行後に `sudo journalctl -u docviewer.service -n 50` と `/var/log/document-viewer/client.log` を確認する。
 
 **ロールバック**
 1. `sudo docker compose down` でコンテナを停止。
@@ -191,8 +192,10 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
   ```bash
   curl -s http://127.0.0.1:8501/api/documents/testpart | jq
   tail -n 20 /srv/rpi-server/logs/document_viewer.log
+  sudo tail -n 20 /var/log/document-viewer/client.log  # Window A 側を確認する場合
   ```
   期待される結果: JSON に `found: true` が含まれ、ログには `Document lookup success` が追記される。404 応答時もログへ `Document not found` が記録される。ログが生成されない場合は `VIEWER_LOG_PATH` 環境変数と Docker bind mount (`/srv/rpi-server/logs`) を確認。
+  RaspberryPiServer 側の `/etc/default/raspi-server` で `VIEWER_LOG_PATH` を設定している場合は `config/raspi-server.env.sample` を参照し、DocumentViewer リポジトリ側テンプレートと整合をとる。
 - API テスト（Bearer トークン無しの場合）  
   ```bash
   curl -s -X POST http://127.0.0.1:8501/api/v1/scans \

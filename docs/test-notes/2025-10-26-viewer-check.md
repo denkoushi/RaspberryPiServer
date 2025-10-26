@@ -12,3 +12,5 @@
 1. Window A 実機で `scripts/install_window_a_env.sh --with-dropin` を実行し、Socket.IO 接続先を RaspberryPiServer へ切り替える。
 2. DocumentViewer（Window A）と RaspberryPiServer との通信を Pi Zero からのスキャンで確認（Socket.IO イベント受信、自動表示）。
 3. `docviewer.service` のログを 14 日チェックの記録で活用できるよう RUNBOOK を整備する。
+   - DocumentViewer リポジトリの `config/docviewer.env.sample`（`VIEWER_API_BASE` / `VIEWER_SOCKET_BASE` / `VIEWER_LOG_PATH` 含む）を `/etc/default/docviewer` にコピーして調整する。
+   - ログ確認手順は DocumentViewer 側ノート `docs/test-notes/2025-10-26-docviewer-env.md` に記録。Window A 実機での検証後、結果をここへ転記し、Mirror 検証チェックリストにも反映する。

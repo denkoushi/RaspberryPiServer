@@ -55,3 +55,5 @@
 - Docker Compose に Flask ベースの受信 API サービスを追加し、`/api/v1/scans` で `part_locations` へ upsert できる最小構成を実装。健康監視用 `GET /healthz` も提供。
 - アプリケーションは PostgreSQL・API トークンを環境変数で切り替え可能。テーブル初期化は起動時に自動で実施。
 - DocumentViewer 用 REST / Socket.IO は RaspberryPiServer で稼働中。次フェーズでは工具管理 UI の移設、Window A クライアントの接続先切替、14 日連続試運転に向けた自動テスト整備を進める。
+- `/etc/default/raspi-server` のサンプル（`config/raspi-server.env.sample`）に DocumentViewer 用 `VIEWER_LOG_PATH` を追加。Window A クライアント側は DocumentViewer リポジトリの `config/docviewer.env.sample` を基に `/etc/default/docviewer` を作成し、サーバーとクライアントの設定が同期するよう整備する。
+- DocumentViewer 側の検証手順は `DocumentViewer/docs/test-notes/2025-10-26-docviewer-env.md` を参照し、RaspberryPiServer の RUNBOOK・Mirror 検証と合わせて更新する。

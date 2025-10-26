@@ -29,8 +29,10 @@
 - 実施済み
   - `VIEWER_SOCKET_*` 環境変数に対応し、Socket.IO イベント受信で PDF を自動表示。
   - `docs/documentviewer-migration.md` に完了状況を反映。
+  - `/etc/default/docviewer` 向けテンプレート（`config/docviewer.env.sample`）とログ手順メモ（`docs/test-notes/2025-10-26-docviewer-env.md`）を整備。
 - 未実施（要実機）
   - Window A 側 iframe 切替後の実機表示確認。
+  - `/var/log/document-viewer/client.log` へのログ出力確認と 14 日チェックシートへの反映。
 
 ## 4. 大枠スケジュールの次アクション
 
