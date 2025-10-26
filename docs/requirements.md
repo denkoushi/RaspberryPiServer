@@ -9,6 +9,18 @@
 - Pi Zero 2 W はハンディリーダ専用端末として運用し、`mirrorctl`／`mirror_compare` の 14 日連続チェックをクリアした状態で本番切替を完了する。
 - 上記役割分担を支える RUNBOOK・手順書・ systemd / USB 運用を整備し、旧 Window A サーバー環境を退役できる状態にする。
 
+## 移行タスク（旧 Window A サーバー縮退計画）
+
+- [ ] Window A に残るクライアント機能の棚卸し（DocumentViewer、工具管理 UI、標準工数、日程、構内物流など）
+- [ ] `docs/implementation-plan.md` に移行順序と依存関係を追記し、RaspberryPiServer へ移すサービスの一覧を整理
+- [ ] RaspberryPiServer へ DocumentViewer 用 REST API / Socket.IO を移植し、Pi Zero・DocumentViewer 間で連携確認
+- [ ] Window A の DocumentViewer をクライアント専用構成へ更改し、`VIEWER_API_BASE` 等で RaspberryPiServer を参照
+- [ ] USB INGEST / DIST / BACKUP 運用を RaspberryPiServer 中心へ再設計し、TM-* ラベルのメディア準備と手順書更新
+- [ ] `mirrorctl` / `mirror_compare` の 14 日連続チェックを完了し、Decision Log に切替判断を記録
+- [ ] 旧 Window A サーバー機能の停止手順とロールバック手順を RUNBOOK へ追記し、退役の判断を実施
+
+> 今後、旧システムの改修に着手する際は、必ず事前に必要タスクを洗い出して本ファイルや関連 `.md` に記録し、進捗が可視化された状態で1つずつ消化すること。
+
 ## 決定事項（Decision Log）
 
 | 日付 | 区分 | 内容 |

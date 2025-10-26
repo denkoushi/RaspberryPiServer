@@ -24,7 +24,10 @@
 | フェーズ | 作業内容 | ブランチ例 | 備考 |
 | --- | --- | --- | --- |
 | Prep | 現行 USB スクリプト・サービス設定の棚卸し | `feature/server-migration-prep` | 移行後にどこまで残すかを整理 |
-| Cutover | サーバー機能の縮退（API/Socket.IO の停止、データ移行） | `feature/server-migration` | RaspberryPiServer への移行完了後に実施 |
+| Prep-2 | DocumentViewer・工具管理 UI 等のクライアント機能を棚卸し、必要データと依存関係を整理 | `feature/windowa-inventory` | RaspberryPiServer へ移す機能と残す機能を明確化 |
+| Impl-1 | DocumentViewer の API/Socket.IO 提供機能を RaspberryPiServer 側へ移植 | `feature/windowa-viewer-migration` | 新サーバーでの API 応答と UI 連携を検証 |
+| Impl-2 | 工具管理、標準工数、日程、構内物流などのサーバー機能を段階的に移行 | `feature/windowa-tool-migration` | それぞれの API / データ移行手順を整理し、Pi Zero や DocumentViewer との連携を確認 |
+| Cutover | Window A からサーバー機能を外し、クライアント専用に再構成 | `feature/server-migration` | RaspberryPiServer への移行完了後に実施し、ロールバック手順を保持 |
 | Archive | 必要であれば README/RUNBOOK を更新し、旧環境の役割を明示 | `feature/archive-notes` | トラブル時のロールバック手順を保持 |
 
 ### 2.3 DocumentViewer（Window B）
