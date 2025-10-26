@@ -2,6 +2,13 @@
 
 この文書は RaspberryPiServer リポジトリで進めるサーバー構築に関する要件・決定事項・検討中の課題を集約する。更新時は `documentation-guidelines.md` を参照し、一次情報を重複記載しない。
 
+## 最終ゴール
+
+- Window A は DocumentViewer・工具管理 UI などのクライアント機能のみを担い、サーバー機能は RaspberryPiServer（ラズパイ 5）へ全面移行する。
+- RaspberryPiServer は API／PostgreSQL／Socket.IO／USB 配布・バックアップを一元的に提供し、Pi Zero 2 W（ハンディリーダ）からの送信を唯一の受信点とする。
+- Pi Zero 2 W はハンディリーダ専用端末として運用し、`mirrorctl`／`mirror_compare` の 14 日連続チェックをクリアした状態で本番切替を完了する。
+- 上記役割分担を支える RUNBOOK・手順書・ systemd / USB 運用を整備し、旧 Window A サーバー環境を退役できる状態にする。
+
 ## 決定事項（Decision Log）
 
 | 日付 | 区分 | 内容 |
