@@ -33,10 +33,10 @@
    - systemd 環境ファイル（`/etc/default/raspi-server`）で `VIEWER_DOCS_DIR` / `VIEWER_API_TOKEN` / `VIEWER_CORS_ORIGINS` を設定できるようにした。  
    - ※ UI ルート `/viewer` は未実装。Window A 側でクライアント UI を配信する場合は不要。必要に応じて別工程で追加する。
 
-4. **Socket.IO イベント送出** ✅ 2025-10-26 完了（サーバー実装）  
-   - `Flask-SocketIO` / `eventlet` を導入し、`/api/v1/scans` 成功時に `part_location_updated` / `scan_update` を broadcast。  
-   - Dockerfile を `gunicorn -k eventlet -w 1` 起動に変更し、`SOCKETIO_CORS_ORIGINS` で許可オリジンを制御。  
-   - クライアント（Window A）での受信・ハンドリングは後続タスク。
+4. **Socket.IO イベント送出** ⏳ 対応中  
+   - `Flask-SocketIO` / `gevent` (+ `gevent-websocket`) で `/api/v1/scans` 成功時に `part_location_updated` / `scan_update` を broadcast する実装を進行中。  
+   - `gunicorn` を `geventwebsocket` ワーカーで起動するところまで反映済みだが、コンテナ内クライアントからの接続時に `ConnectionError` が発生しており切り分け中。  
+   - 次ステップ: 旧システム（tool-management-system02）と同じ Flask / Socket.IO バージョン構成を比較し、依存関係・起動方式を揃えて通信を安定させる。クライアント（Window A）での受信・ハンドリングはその後に着手。
 
 5. **Window A 側の調整**
    - DocumentViewer クライアント（Window A）を RaspberryPiServer の `/viewer` へ向けるか、Window A 側 Flask をクライアント専用に縮退させる。
