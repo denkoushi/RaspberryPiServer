@@ -1,7 +1,6 @@
 import importlib
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
@@ -11,6 +10,20 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     psycopg = ModuleType("psycopg")
     sys.modules["psycopg"] = psycopg  # type: ignore
+
+
+class SocketIOStub:
+    def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
+        self.app = None
+
+    def init_app(self, app, **kwargs):  # pylint: disable=unused-argument
+        self.app = app
+
+    def emit(self, event, data=None, **kwargs):  # pylint: disable=unused-argument
+        return None
+
+    def run(self, app, host=None, port=None, **kwargs):  # pylint: disable=unused-argument
+        return (app, host, port)
 
 
 class FakeDatabase:
@@ -69,7 +82,7 @@ class FakeCursor:
         if "INSERT INTO PART_LOCATIONS" in normalized:
             self._result = self._database.upsert_part_location(params)
             return
-        # CREATE TABLE やその他のクエリは副作用なしで無視
+        # CREATE TABLE などのクエリは副作用なしで無視
         self._result = None
 
     def fetchone(self):
@@ -83,17 +96,17 @@ class FakeCursor:
 
 
 @pytest.fixture
-def server_module(monkeypatch):
+def server_module(monkeypatch, tmp_path):
     fake_db = FakeDatabase()
     monkeypatch.setattr(psycopg, "connect", fake_db.connect, raising=False)
-    docs_dir = Path.cwd() / "tmp_test_documents"
+    docs_dir = tmp_path / "documents"
+    docs_dir.mkdir()
     monkeypatch.setenv("VIEWER_DOCS_DIR", str(docs_dir))
     socketio_module = ModuleType("flask_socketio")
     socketio_module.SocketIO = SocketIOStub
     monkeypatch.setitem(sys.modules, "flask_socketio", socketio_module)
     module = importlib.import_module("app.server")
     module = importlib.reload(module)
-    # Socket.IO の emit はテスト用に捕捉する
     captured = []
 
     def fake_emit(event, data=None, **kwargs):
@@ -140,8 +153,9 @@ def test_create_scan_persists_and_emits(server_module):
 
     events = server_module.emitted
     assert [evt.event for evt in events] == ["part_location_updated", "scan_update"]
-    assert events[0].data == body
-    assert events[0].kwargs.get("broadcast") is True
+    assert all(evt.kwargs.get("broadcast") is True for evt in events)
+    for evt in events:
+        assert evt.data == body
 
 
 def test_create_scan_requires_bearer_token(server_module, monkeypatch):
@@ -177,15 +191,52 @@ def test_create_scan_with_custom_timestamp(server_module):
 
     assert response.status_code == 201
     assert body["scanned_at"] == "2024-12-31T12:34:56Z"
-class SocketIOStub:
-    def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
-        self.app = None
 
-    def init_app(self, app, **kwargs):  # pylint: disable=unused-argument
-        self.app = app
 
-    def emit(self, event, data=None, **kwargs):  # pylint: disable=unused-argument
-        return None
+def test_create_scan_with_epoch_timestamp(server_module):
+    client = server_module.module.app.test_client()
+    epoch_value = 1735685696.5  # 任意の epoch 秒
+    response = client.post(
+        "/api/v1/scans",
+        json={
+            "part_code": "epoch",
+            "location_code": "LOC-2",
+            "scanned_at": epoch_value,
+        },
+    )
+    body = response.get_json()
 
-    def run(self, app, host=None, port=None, **kwargs):  # pylint: disable=unused-argument
-        return (app, host, port)
+    expected_iso = datetime.fromtimestamp(epoch_value, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    assert response.status_code == 201
+    assert body["scanned_at"] == expected_iso
+
+
+def test_create_scan_missing_fields(server_module):
+    client = server_module.module.app.test_client()
+    response = client.post(
+        "/api/v1/scans",
+        json={"part_code": "missing"},
+    )
+    assert response.status_code == 400
+
+
+def test_create_scan_rejects_non_string_fields(server_module):
+    client = server_module.module.app.test_client()
+    response = client.post(
+        "/api/v1/scans",
+        json={"part_code": "test", "location_code": 123},
+    )
+    assert response.status_code == 400
+
+
+def test_create_scan_invalid_timestamp(server_module):
+    client = server_module.module.app.test_client()
+    response = client.post(
+        "/api/v1/scans",
+        json={
+            "part_code": "badts",
+            "location_code": "LOC-3",
+            "scanned_at": "not-a-date",
+        },
+    )
+    assert response.status_code == 400
