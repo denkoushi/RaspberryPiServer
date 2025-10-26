@@ -9,6 +9,6 @@
 - RaspberryPiServer 側では `/api/v1/scans` が稼働しており、今後工具管理 UI・DocumentViewer 右ペインを統合予定。
 
 ## 次のアクション
-1. Socket.IO 接続先を環境変数で切り替えられるよう `app/static/app.js` をリファクタリングする。
-2. RaspberryPiServer の Socket.IO エンドポイント設計（tool-management-system02 側）と連携し、DocumentViewer が参照する API を統一する。
-3. ログ出力（`docviewer.service`）を 14 日チェックで活用できるよう整備し、RUNBOOK へ反映する。
+1. Window A 実機で `scripts/install_window_a_env.sh --with-dropin` を実行し、Socket.IO 接続先を RaspberryPiServer へ切り替える。
+2. DocumentViewer（Window A）と RaspberryPiServer との通信を Pi Zero からのスキャンで確認（Socket.IO イベント受信、自動表示）。
+3. `docviewer.service` のログを 14 日チェックの記録で活用できるよう RUNBOOK を整備する。
