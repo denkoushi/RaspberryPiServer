@@ -19,19 +19,21 @@ services:
     networks:
       - backend
 
-  # 例: 将来的に Flask アプリを追加する場合は下記サービスをコメント解除
-  # app:
-  #   build: .
-  #   restart: unless-stopped
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - backend
-  #   ports:
-  #     - "8501:8501"
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://app:app_password@postgres:5432/appdb}
+      API_TOKEN: ${API_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    ports:
+      - "8501:8501"
 
 volumes:
   postgres-data:

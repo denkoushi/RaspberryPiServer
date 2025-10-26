@@ -30,3 +30,8 @@
 - バックアップ用 USB メモリの容量設計とスナップショット整理（保持世代、圧縮方式）—詳細は `docs/usb-operations.md`
 - OnSiteLogistics ミラー送信モードおよび `mirrorctl` CLI の実装—詳細は `docs/mirror-verification.md`
 - 実装ロードマップに基づく各リポジトリのブランチ戦略と結合テスト計画—`docs/implementation-plan.md`
+
+## 現在の進捗メモ（2025-10-26 時点）
+- Docker Compose に Flask ベースの受信 API サービスを追加し、`/api/v1/scans` で `part_locations` へ upsert できる最小構成を実装。健康監視用 `GET /healthz` も提供。
+- アプリケーションは PostgreSQL・API トークンを環境変数で切り替え可能。テーブル初期化は起動時に自動で実施。
+- 次フェーズでは工具管理 UI や DocumentViewer 用の Socket.IO / REST を段階的に移植し、14 日試運転シナリオで利用できるよう機能拡張を進める。***
