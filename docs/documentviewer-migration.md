@@ -20,18 +20,18 @@
 
 ## 3. 実装ステップ
 
-1. **DocumentViewer Blueprint の追加**
-   - `app/document_viewer.py` を新規作成し、Flask Blueprint で UI / API / PDF 配信を実装。
-   - 既存 `app/viewer.py`（DocumentViewer リポジトリ）をベースにしつつ、設定値を環境変数化。
-   - PDF ディレクトリが存在しない場合は自動生成（`mkdir -p`）。
+1. **DocumentViewer Blueprint の追加** ✅ 2025-10-26 完了  
+   - `app/document_viewer.py` を新規作成し、Flask Blueprint で `/api/documents` と `/documents` を提供。  
+   - PDF ディレクトリは `VIEWER_DOCS_DIR`（既定 `/srv/rpi-server/documents`）を参照し、存在しなければ自動生成。
 
-2. **CORS / 認証対応**
-   - `flask-cors` などで `/api/documents/*` へ CORS ヘッダーを付与。
-   - オプションで `VIEWER_API_TOKEN` を検証するヘルパーを実装。
+2. **CORS / 認証対応** ✅ 2025-10-26 完了  
+   - `/api/documents/*` に CORS ヘッダー（`VIEWER_CORS_ORIGINS` 環境変数で制御）を付与。  
+   - `VIEWER_API_TOKEN` を Bearer 認証で検証できるようにした。
 
-3. **RaspberryPiServer への登録**
-   - `app/server.py` の `create_app()` で Blueprint を登録。
-   - systemd (`raspi-server.service`) 稼働時に環境変数（`VIEWER_DOCS_DIR`, `VIEWER_API_TOKEN`, `VIEWER_UI_ENABLED` など）を `/etc/default/raspi-server` から読み込めるようにする。
+3. **RaspberryPiServer への登録** ✅ 2025-10-26 完了  
+   - `app/server.py` の `create_app()` で Blueprint を登録。  
+   - systemd 環境ファイル（`/etc/default/raspi-server`）で `VIEWER_DOCS_DIR` / `VIEWER_API_TOKEN` / `VIEWER_CORS_ORIGINS` を設定できるようにした。  
+   - ※ UI ルート `/viewer` は未実装。Window A 側でクライアント UI を配信する場合は不要。必要に応じて別工程で追加する。
 
 4. **Window A 側の調整**
    - DocumentViewer クライアント（Window A）を RaspberryPiServer の `/viewer` へ向けるか、Window A 側 Flask をクライアント専用に縮退させる。
@@ -53,4 +53,3 @@
 - CORS 設定の詳細（許可するオリジン、認証ヘッダーの扱い）を最終決定。
 - DocumentViewer の UI を RaspberryPiServer 側でホストするか、Window A 側で引き続きホストするかの選択。前者は集約が容易、後者は無停止移行が簡単。
 - 自動テスト（API レスポンス、PDF 配信、CORS）を `docs/test-notes/2025-10-26-viewer-check.md` に追加し、将来の回帰を防ぐ。
-

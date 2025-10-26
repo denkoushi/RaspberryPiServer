@@ -6,6 +6,8 @@ import psycopg
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import BadRequest, Unauthorized
 
+from .document_viewer import document_viewer_bp
+
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -18,6 +20,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
     _configure_logging()
     _init_db()
+    app.register_blueprint(document_viewer_bp)
 
     @app.get("/healthz")
     def healthz():
