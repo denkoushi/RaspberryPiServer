@@ -54,6 +54,10 @@ unable to get image 'postgres:15-alpine': Cannot connect to the Docker daemon at
 
 > ※ 当時はホスト側ポートが `5432` だったため上記コマンドを使用。2025-10-26 以降は `postgresql://...@127.0.0.1:15432/...` を利用する。
 
+### 追加ログ（2025-10-26 12:42 JST）
+- `sudo PG_URI="postgresql://app:app_password@127.0.0.1:15432/appdb" tool-snapshot.sh --dest /srv/rpi-server/snapshots` → `/srv/rpi-server/snapshots/2025-10-26_124253/db/pg_dump.sql` を生成し、`snapshot completed (dry_run=0)` を確認。
+- `sudo tool-backup-export.sh --device /dev/sdX1 --dry-run` → バックアップ USB 未接続のため `invalid device: /dev/sdX1`。実行時は `/dev/sd?` を実際のデバイスへ差し替える。
+
 ### 発生した課題
 - `pg_dump` 未導入 → `postgresql-client` を追加して解決。
 - 初回はコンテナがポート公開されておらず `tool-snapshot.sh` で `localhost:5432` 接続が失敗。`docker-compose.yml` に `ports: "127.0.0.1:5432:5432"` を追記し再起動。※ 2025-10-26 にホスト側ポートを `15432` へ変更済み。
