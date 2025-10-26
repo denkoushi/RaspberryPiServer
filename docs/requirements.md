@@ -13,7 +13,7 @@
 
 - [ ] Window A に残るクライアント機能の棚卸し（DocumentViewer、工具管理 UI、標準工数、日程、構内物流など）
 - [ ] `docs/implementation-plan.md` に移行順序と依存関係を追記し、RaspberryPiServer へ移すサービスの一覧を整理
-- [ ] RaspberryPiServer へ DocumentViewer 用 REST API / Socket.IO を移植し、Pi Zero・DocumentViewer 間で連携確認
+- [x] RaspberryPiServer へ DocumentViewer 用 REST API / Socket.IO を移植し、Pi Zero・DocumentViewer 間で連携確認（2025-10-26 ハンドテスト完了、`docs/test-notes/2025-10-26-socketio-verification.md` 参照）
 - [ ] Window A の DocumentViewer をクライアント専用構成へ更改し、`VIEWER_API_BASE` 等で RaspberryPiServer を参照
 - [ ] USB INGEST / DIST / BACKUP 運用を RaspberryPiServer 中心へ再設計し、TM-* ラベルのメディア準備と手順書更新
 - [ ] `mirrorctl` / `mirror_compare` の 14 日連続チェックを完了し、Decision Log に切替判断を記録
@@ -53,4 +53,4 @@
 ## 現在の進捗メモ（2025-10-26 時点）
 - Docker Compose に Flask ベースの受信 API サービスを追加し、`/api/v1/scans` で `part_locations` へ upsert できる最小構成を実装。健康監視用 `GET /healthz` も提供。
 - アプリケーションは PostgreSQL・API トークンを環境変数で切り替え可能。テーブル初期化は起動時に自動で実施。
-- 次フェーズでは工具管理 UI や DocumentViewer 用の Socket.IO / REST を段階的に移植し、14 日試運転シナリオで利用できるよう機能拡張を進める。***
+- DocumentViewer 用 REST / Socket.IO は RaspberryPiServer で稼働中。次フェーズでは工具管理 UI の移設、Window A クライアントの接続先切替、14 日連続試運転に向けた自動テスト整備を進める。
