@@ -46,6 +46,9 @@
 | Integration | RaspberryPiServer とのエンドポイント切替 | `feature/server-endpoint` | ミラー有効・無効の切替テスト |
 | Docs | ハンディリーダ設定手順更新 | `feature/update-docs` | ミラー設定・復旧手順の明記 |
 
+> Pi Zero 側の設定手順は `OnSiteLogistics/README.md` および `scripts/install_client_config.sh` に整備済み。`sudo ./scripts/install_client_config.sh --api-url http://raspi-server.local:8501/api/v1/scans ...` を実行し、`handheld@.service` を再起動するだけで RaspberryPiServer へ切り替えられる。
+> 作業進捗の一覧は `docs/status/2025-10-26-client-cutover.md` を参照。
+
 ## 3. 共通検証項目
 
 - **USB 運用**: INGEST → サーバー反映 → DIST エクスポート → 端末同期 → バックアップまでの一連テストを自動化する。
