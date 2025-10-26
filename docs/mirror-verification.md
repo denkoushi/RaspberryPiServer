@@ -22,6 +22,11 @@
 
 以下の手順を 1 セットとして実施し、チェックリスト（テンプレートは `docs/test-notes/` 配下に追加予定）に記録する。
 
+0. **事前チェック（切替準備）**  
+   - Window A、Pi Zero が最新ブランチで設定済みか `docs/status/2025-10-26-client-cutover.md` を参照。  
+   - 必要であれば Pi Zero で `sudo ./scripts/install_client_config.sh --api-url http://raspi-server.local:8501/api/v1/scans ...` を再実行し、`sudo systemctl restart handheld@<user>.service` を行う。  
+   - Window A では `/etc/toolmgmt/window-a-client.env` を確認し、`toolmgmt.service` が `LIVE` で起動しているかを確認する。
+
 1. **Pi Zero 操作**  
    - `mirrorctl status` で `mirror_mode=true`、タイマーが `active/enabled` であることを確認。  
    - ハンディリーダでサンプルの部品票 + 棚を読み取る。成功時の確認音・表示を記録。
