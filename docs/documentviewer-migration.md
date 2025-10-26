@@ -33,16 +33,21 @@
    - systemd 環境ファイル（`/etc/default/raspi-server`）で `VIEWER_DOCS_DIR` / `VIEWER_API_TOKEN` / `VIEWER_CORS_ORIGINS` を設定できるようにした。  
    - ※ UI ルート `/viewer` は未実装。Window A 側でクライアント UI を配信する場合は不要。必要に応じて別工程で追加する。
 
-4. **Window A 側の調整**
+4. **Socket.IO イベント送出** ✅ 2025-10-26 完了（サーバー実装）  
+   - `Flask-SocketIO` / `eventlet` を導入し、`/api/v1/scans` 成功時に `part_location_updated` / `scan_update` を broadcast。  
+   - Dockerfile を `gunicorn -k eventlet -w 1` 起動に変更し、`SOCKETIO_CORS_ORIGINS` で許可オリジンを制御。  
+   - クライアント（Window A）での受信・ハンドリングは後続タスク。
+
+5. **Window A 側の調整**
    - DocumentViewer クライアント（Window A）を RaspberryPiServer の `/viewer` へ向けるか、Window A 側 Flask をクライアント専用に縮退させる。
    - `DOCUMENT_VIEWER_URL` を `http://raspi-server.local:8501/viewer` に更新。
    - API トークンを RaspberryPiServer 側に合わせて再発行し、環境変数 `VIEWER_API_TOKEN` を DocumentViewer フロント／tool-management-system02 双方で設定。
 
-5. **データ移行**
+6. **データ移行**
    - 既存 PDF（Window A の `documents/`）を RaspberryPiServer の `/srv/rpi-server/documents` へ同期。
    - USB / git 管理されている PDF 更新手順を RUNBOOK に追記し、DocumentViewer が常に RaspberryPiServer 上の最新ファイルを参照するようにする。
 
-6. **検証手順**
+7. **検証手順**
    - 手動テスト: Pi Zero からの送信 → DocumentViewer で表示 → USB DIST で PDF が更新される流れを確認。
    - 14 日チェック: DocumentViewer 連携が問題なく稼働することを日次記録へ追加。
 

@@ -15,4 +15,4 @@ COPY app /app
 
 ENV PORT=8501
 
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8501", "server:app"]
+CMD ["gunicorn", "-k", "eventlet", "-w", "1", "-b", "0.0.0.0:8501", "server:app"]

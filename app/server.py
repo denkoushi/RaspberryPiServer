@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import psycopg
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import BadRequest, Unauthorized
+from flask_socketio import SocketIO
 
 from document_viewer import document_viewer_bp
 
@@ -14,6 +15,8 @@ DATABASE_URL = os.getenv(
     "postgresql://app:app_password@postgres:5432/appdb",
 )
 API_TOKEN = os.getenv("API_TOKEN", "")
+SOCKETIO_CORS_ORIGINS = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
+socketio = SocketIO(cors_allowed_origins=SOCKETIO_CORS_ORIGINS)
 
 
 def create_app() -> Flask:
@@ -21,6 +24,7 @@ def create_app() -> Flask:
     _configure_logging()
     _init_db()
     app.register_blueprint(document_viewer_bp)
+    socketio.init_app(app, cors_allowed_origins=SOCKETIO_CORS_ORIGINS)
 
     @app.get("/healthz")
     def healthz():
@@ -84,6 +88,8 @@ def create_app() -> Flask:
             "scanned_at": _to_utc_iso(row[4]),
             "updated_at": _to_utc_iso(row[5]),
         }
+        socketio.emit("part_location_updated", response, broadcast=True)
+        socketio.emit("scan_update", response, broadcast=True)
         return jsonify(response), 201
 
     return app
@@ -163,4 +169,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8501")))
+    socketio.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8501")))
