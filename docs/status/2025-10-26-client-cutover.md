@@ -36,7 +36,7 @@
 
 1. Window A 実機で環境ファイル＋ drop-in を適用 → `toolmgmt.service` 再起動 → Socket.IO LIVE 表示確認。
 2. Pi Zero 実機で `install_client_config.sh` を実行 → サービス再起動 → `curl` + `journalctl` で送信確認。
-3. 2台が新サーバー接続で安定したら、14 日試運転チェックリスト（`docs/mirror-verification.md`）を開始。記録は `docs/test-notes/template-mirror-daily-check.md` をコピーして利用する。
+3. 2台が新サーバー接続で安定したら、14 日試運転チェックリスト（`docs/mirror-verification.md`）を開始。記録は `scripts/create_mirror_check_note.sh` を実行して `docs/test-notes/` に生成する。
 4. 手順確認後、RUNBOOK / CHANGELOG を更新し、本番切替時期を決定する。
 
 必要に応じ、各リポジトリのブランチをマージ or リリースブランチへ統合する。
