@@ -20,7 +20,7 @@
 
 ## 3. 日次チェックリスト
 
-以下の手順を 1 セットとして実施し、チェックリスト（テンプレートは `docs/test-notes/` 配下に追加予定）に記録する。
+以下の手順を 1 セットとして実施し、チェックリスト（`docs/test-notes/template-mirror-daily-check.md` をコピー）に記録する。
 
 0. **事前チェック（切替準備）**  
    - Window A、Pi Zero が最新ブランチで設定済みか `docs/status/2025-10-26-client-cutover.md` を参照。  
