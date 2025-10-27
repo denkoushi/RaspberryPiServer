@@ -1,6 +1,10 @@
+import csv
+import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
 
 import psycopg
 from flask import Flask, jsonify, request
@@ -17,6 +21,22 @@ DATABASE_URL = os.getenv(
 API_TOKEN = os.getenv("API_TOKEN", "")
 SOCKETIO_CORS_ORIGINS = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
 socketio = SocketIO(cors_allowed_origins=SOCKETIO_CORS_ORIGINS, async_mode="gevent")
+
+PLAN_DATA_DIR = Path(os.getenv("PLAN_DATA_DIR", "/srv/rpi-server/data/plan")).resolve()
+STATION_CONFIG_PATH = Path(os.getenv("STATION_CONFIG_PATH", "/srv/rpi-server/config/station.json")).resolve()
+
+PLAN_DATASETS = {
+    "production_plan": {
+        "filename": "production_plan.csv",
+        "columns": ["納期", "個数", "部品番号", "部品名", "製番", "工程名"],
+        "label": "生産計画",
+    },
+    "standard_times": {
+        "filename": "standard_times.csv",
+        "columns": ["部品名", "機械標準工数", "製造オーダー番号", "部品番号", "工程名"],
+        "label": "標準工数",
+    },
+}
 
 
 def create_app() -> Flask:
@@ -92,6 +112,45 @@ def create_app() -> Flask:
         socketio.emit("scan_update", response, broadcast=True)
         return jsonify(response), 201
 
+    @app.get("/api/v1/production-plan")
+    def get_production_plan():
+        _enforce_token()
+        dataset = _load_plan_dataset("production_plan")
+        status = 200 if dataset["error"] is None else 404
+        return jsonify(dataset), status
+
+    @app.get("/api/v1/standard-times")
+    def get_standard_times():
+        _enforce_token()
+        dataset = _load_plan_dataset("standard_times")
+        status = 200 if dataset["error"] is None else 404
+        return jsonify(dataset), status
+
+    @app.get("/api/v1/part-locations")
+    def get_part_locations():
+        _enforce_token()
+        limit_arg = request.args.get("limit", default=None, type=str)
+        try:
+            limit_value = int(limit_arg) if limit_arg is not None else 200
+        except ValueError:
+            raise BadRequest("invalid_limit")
+        entries = _fetch_part_locations(limit_value)
+        return jsonify({"entries": entries})
+
+    @app.get("/api/v1/station-config")
+    def get_station_config():
+        _enforce_token()
+        config = _load_station_config()
+        return jsonify(config)
+
+    @app.post("/api/v1/station-config")
+    def update_station_config():
+        _enforce_token()
+        payload = request.get_json(silent=True) or {}
+        config = _validate_station_payload(payload)
+        saved = _save_station_config(config)
+        return jsonify(saved)
+
     return app
 
 
@@ -119,6 +178,134 @@ def _init_db() -> None:
             )
 
 
+def _load_plan_dataset(key: str) -> dict:
+    if key not in PLAN_DATASETS:
+        raise BadRequest("unknown_dataset")
+
+    cfg = PLAN_DATASETS[key]
+    path = PLAN_DATA_DIR / cfg["filename"]
+    result = {
+        "label": cfg["label"],
+        "entries": [],
+        "updated_at": None,
+        "error": None,
+    }
+
+    if not path.exists():
+        result["error"] = f"{cfg['label']} not found"
+        return result
+
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as fh:
+            reader = csv.DictReader(fh)
+            headers = reader.fieldnames or []
+            if headers != cfg["columns"]:
+                result["error"] = f"unexpected columns: {headers}"
+                return result
+            for row in reader:
+                normalized = {column: row.get(column, "") for column in cfg["columns"]}
+                result["entries"].append(normalized)
+        result["updated_at"] = _get_file_mtime(path)
+    except Exception as exc:  # pylint: disable=broad-except
+        result["error"] = f"failed to load dataset: {exc}"
+    return result
+
+
+def _get_file_mtime(path: Path) -> Optional[str]:
+    try:
+        timestamp = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        return _to_utc_iso(timestamp)
+    except Exception:  # pylint: disable=broad-except
+        return None
+
+
+def _load_station_config() -> dict:
+    if STATION_CONFIG_PATH.exists():
+        try:
+            data = json.loads(STATION_CONFIG_PATH.read_text(encoding="utf-8"))
+            return {
+                "process": _ensure_str(data.get("process")),
+                "available": _ensure_str_list(data.get("available")),
+                "updated_at": data.get("updated_at"),
+            }
+        except Exception:  # pylint: disable=broad-except
+            pass
+    return {"process": "", "available": [], "updated_at": None}
+
+
+def _save_station_config(config: dict) -> dict:
+    payload = {
+        "process": _ensure_str(config.get("process")),
+        "available": _ensure_str_list(config.get("available")),
+        "updated_at": _to_utc_iso(datetime.now(timezone.utc)),
+    }
+    STATION_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATION_CONFIG_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def _ensure_str(value) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise BadRequest("invalid_station_process")
+    return value.strip()
+
+
+def _ensure_str_list(value) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, (list, tuple)):
+        raise BadRequest("invalid_station_available")
+    result = []
+    for item in value:
+        if not isinstance(item, str):
+            raise BadRequest("invalid_station_available")
+        stripped = item.strip()
+        if stripped:
+            result.append(stripped)
+    return result
+
+
+def _validate_station_payload(payload: dict) -> dict:
+    return {
+        "process": payload.get("process", ""),
+        "available": payload.get("available", []),
+    }
+
+
+def _fetch_part_locations(limit: int) -> list[dict[str, object]]:
+    try:
+        limit_value = max(1, min(int(limit), 1000))
+    except (TypeError, ValueError):
+        raise BadRequest("invalid_limit")
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT order_code, location_code, device_id, last_scan_id, scanned_at, updated_at
+                FROM part_locations
+                ORDER BY updated_at DESC
+                LIMIT %s
+                """,
+                (limit_value,),
+            )
+            rows = cur.fetchall()
+
+    results: list[dict[str, object]] = []
+    for order_code, location_code, device_id, last_scan_id, scanned_at, updated_at in rows:
+        results.append(
+            {
+                "order_code": order_code,
+                "location_code": location_code,
+                "device_id": device_id,
+                "last_scan_id": last_scan_id,
+                "scanned_at": _to_utc_iso(scanned_at),
+                "updated_at": _to_utc_iso(updated_at),
+            }
+        )
+    return results
 def _parse_timestamp(value) -> datetime:
     if isinstance(value, (int, float)):
         return datetime.fromtimestamp(value, tz=timezone.utc)

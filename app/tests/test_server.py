@@ -54,6 +54,27 @@ class FakeDatabase:
             record["updated_at"],
         )
 
+    def list_part_locations(self, limit):
+        items = sorted(
+            self.rows.values(),
+            key=lambda item: item["updated_at"],
+            reverse=True,
+        )
+        limited = items[: max(1, min(limit, 1000))]
+        result = []
+        for row in limited:
+            result.append(
+                (
+                    row["order_code"],
+                    row["location_code"],
+                    row["device_id"],
+                    row["last_scan_id"],
+                    row["scanned_at"],
+                    row["updated_at"],
+                )
+            )
+        return result
+
 
 class FakeConnection:
     def __init__(self, database):
@@ -73,6 +94,7 @@ class FakeCursor:
     def __init__(self, database):
         self._database = database
         self._result = None
+        self._result_all = None
 
     def execute(self, query, params=None):
         normalized = " ".join(query.split()).upper()
@@ -82,11 +104,19 @@ class FakeCursor:
         if "INSERT INTO PART_LOCATIONS" in normalized:
             self._result = self._database.upsert_part_location(params)
             return
+        if "FROM PART_LOCATIONS" in normalized and "SELECT" in normalized:
+            limit = params[0] if params else 200
+            self._result_all = self._database.list_part_locations(limit)
+            return
         # CREATE TABLE などのクエリは副作用なしで無視
         self._result = None
+        self._result_all = None
 
     def fetchone(self):
         return self._result
+
+    def fetchall(self):
+        return self._result_all or []
 
     def __enter__(self):
         return self
@@ -103,6 +133,10 @@ def server_module(monkeypatch, tmp_path):
     docs_dir.mkdir()
     monkeypatch.setenv("VIEWER_DOCS_DIR", str(docs_dir))
     monkeypatch.setenv("VIEWER_LOG_PATH", str(tmp_path / "viewer.log"))
+    plan_dir = tmp_path / "plan"
+    plan_dir.mkdir()
+    monkeypatch.setenv("PLAN_DATA_DIR", str(plan_dir))
+    monkeypatch.setenv("STATION_CONFIG_PATH", str(tmp_path / "station.json"))
     sys.modules.pop("app.document_viewer", None)
     socketio_module = ModuleType("flask_socketio")
     socketio_module.SocketIO = SocketIOStub
@@ -242,3 +276,69 @@ def test_create_scan_invalid_timestamp(server_module):
         },
     )
     assert response.status_code == 400
+
+
+def test_get_production_plan(server_module, tmp_path):
+    plan_dir = server_module.module.PLAN_DATA_DIR
+    plan_dir.mkdir(parents=True, exist_ok=True)
+    plan_csv = plan_dir / "production_plan.csv"
+    plan_csv.write_text(
+        "納期,個数,部品番号,部品名,製番,工程名\n2025-01-01,10,PART-1,部品A,JOB-1,切削\n",
+        encoding="utf-8",
+    )
+
+    client = server_module.module.app.test_client()
+    response = client.get("/api/v1/production-plan")
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["entries"][0]["部品番号"] == "PART-1"
+    assert body["updated_at"].endswith("Z")
+
+
+def test_get_standard_times(server_module):
+    plan_dir = server_module.module.PLAN_DATA_DIR
+    plan_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = plan_dir / "standard_times.csv"
+    csv_path.write_text(
+        "部品名,機械標準工数,製造オーダー番号,部品番号,工程名\n部品A,12.3,ORDER-1,PART-1,切削\n",
+        encoding="utf-8",
+    )
+
+    client = server_module.module.app.test_client()
+    response = client.get("/api/v1/standard-times")
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["entries"][0]["製造オーダー番号"] == "ORDER-1"
+
+
+def test_station_config_get_and_post(server_module):
+    client = server_module.module.app.test_client()
+
+    # default (no file)
+    response = client.get("/api/v1/station-config")
+    assert response.status_code == 200
+    assert response.get_json()["available"] == []
+
+    payload = {"process": "切削", "available": ["切削", "研磨"]}
+    post_response = client.post("/api/v1/station-config", json=payload)
+    body = post_response.get_json()
+
+    assert post_response.status_code == 200
+    assert body["process"] == "切削"
+    assert body["available"] == ["切削", "研磨"]
+    assert body["updated_at"].endswith("Z")
+
+
+def test_part_locations_endpoint(server_module):
+    client = server_module.module.app.test_client()
+    client.post(
+        "/api/v1/scans",
+        json={"part_code": "ABC", "location_code": "RACK-1"},
+    )
+
+    response = client.get("/api/v1/part-locations?limit=5")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["entries"][0]["order_code"] == "ABC"
