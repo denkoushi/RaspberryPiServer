@@ -27,6 +27,21 @@
 3. 取り外す前に `sudo umount /mnt/backup`。
 
 ## 3. デプロイ/更新手順
+
+### 3.0 サーバースタックの自動セットアップ
+リポジトリ直下で次を実行すると、USB スクリプト配置・systemd/udev・必要ディレクトリ・タイマー有効化までを一括で行う。
+
+```bash
+cd ~/RaspberryPiServer
+sudo scripts/install_server_stack.sh
+```
+
+- `PREFIX=/opt/toolmaster sudo scripts/install_server_stack.sh` のように `PREFIX` を変更可能。
+- タイマー起動をスキップする場合は `--skip-enable` を付与。
+- ロールバックは `sudo scripts/install_server_stack.sh --remove` で行う（スクリプトと unit、udev を削除。`/srv/rpi-server/*` のデータは削除されない）。
+
+以降の節では個別手順を記載しているが、自動セットアップで完了した場合は必要に応じた確認のみ実施すればよい。
+
 ### 3.1 コード更新
 ```bash
 cd ~/RaspberryPiServer
@@ -35,6 +50,9 @@ git checkout feature/server-ops-docs
 git pull --ff-only
 ```
 ### 3.2 systemd/udev テンプレート更新
+
+> `scripts/install_server_stack.sh` を利用した場合は自動的に配置・daemon-reload 済み。必要に応じて再実行する。
+
 ```bash
 sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/
 sudo cp udev/90-toolmaster.rules /etc/udev/rules.d/
@@ -45,6 +63,8 @@ sudo udevadm control --reload
 sudo udevadm trigger
 ```
 ### 3.3 スクリプト配置
+
+> 自動セットアップを利用した場合はこの手順は不要。
 ```bash
 sudo mkdir -p /usr/local/toolmaster/bin /usr/local/toolmaster/lib
 sudo cp scripts/tool-*.sh /usr/local/toolmaster/bin/

@@ -175,6 +175,8 @@ WantedBy=multi-user.target
 
 各スクリプトは `lib/toolmaster-usb.sh`（共通関数ライブラリ）を参照し、ラベル検証やロギングを共通化する。
 
+> 手動コピーが煩雑な場合は `sudo scripts/install_server_stack.sh` を利用すると、上記配置・systemd/udev 設定まで一括で行える。
+
 ### 7.4 ログ出力
 
 - サーバー側: `/srv/rpi-server/logs/usb_ingest.log`、`usb_backup.log`、`usb_guard.log`

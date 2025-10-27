@@ -79,6 +79,8 @@
 9. `sudo chmod 644 /usr/local/toolmaster/lib/toolmaster-usb.sh`
 10. `sudo ln -sf /usr/local/toolmaster/bin/tool-*.sh /usr/local/bin/`
 11. `sudo cp /usr/local/toolmaster/lib/toolmaster-usb.sh /usr/local/lib/toolmaster-usb.sh`
+
+> 2025-10-27 以降は `sudo scripts/install_server_stack.sh` で上記 5〜11、および systemd/udev 配置・タイマー有効化まで一括実行可能。ロールバックは `sudo scripts/install_server_stack.sh --remove` を使用する。
 12. `sudo udevadm control --reload && sudo udevadm trigger`
 
 ## 5. オープン課題
