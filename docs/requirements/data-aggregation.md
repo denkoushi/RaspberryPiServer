@@ -16,7 +16,7 @@
 - レスポンス例・エラー仕様は後続で OpenAPI 化を検討。
 
 ## 3. Data Flow
-1. USB 取り込み (`tool-ingest-sync.sh`) が生産計画／標準工数 CSV を `/srv/rpi-server/data/plan/` に配置。
+1. USB 取り込み (`tool-ingest-sync.sh`) が生産計画／標準工数 CSV を `/srv/rpi-server/data/plan/` に配置。（2025-10-27 実装）
 2. サーバー起動時またはインポート完了時に、CSV を読み込みキャッシュ（JSON）を生成。API はキャッシュから返す。
 3. station 設定は `/srv/rpi-server/config/station.json` に保存し、API を通じて読み書きする。
 4. 所在一覧は現在と同様、PostgreSQL `part_locations` を直接参照。

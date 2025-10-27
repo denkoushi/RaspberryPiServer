@@ -13,6 +13,7 @@ USB_LOG_TAG="tool-ingest-sync"
 SERVER_ROOT="${SERVER_ROOT:-/srv/rpi-server}"
 SERVER_MASTER_DIR="${SERVER_MASTER_DIR:-${SERVER_ROOT}/master}"
 SERVER_DOC_DIR="${SERVER_DOC_DIR:-${SERVER_ROOT}/docviewer}"
+PLAN_DATA_DIR="${PLAN_DATA_DIR:-${SERVER_ROOT}/data/plan}"
 
 DEVICE=""
 DRY_RUN=0
@@ -173,10 +174,39 @@ copy_to_usb() {
   rsync "${rsync_flags[@]}" "${src}/" "${dest}/"
 }
 
+refresh_plan_datasets() {
+  local python_bin="${PYTHON_BIN:-python3}"
+  local updater="${REPO_ROOT}/scripts/update_plan_cache.py"
+
+  if [[ ! -f "${updater}" ]]; then
+    usb_log "err" "plan cache updater not found: ${updater}"
+    return 1
+  fi
+
+  if [[ ${DRY_RUN} -eq 1 ]]; then
+    SERVER_ROOT="${SERVER_ROOT}" \
+    SERVER_MASTER_DIR="${SERVER_MASTER_DIR}" \
+    PLAN_DATA_DIR="${PLAN_DATA_DIR}" \
+    "${python_bin}" "${updater}" --dry-run || true
+    usb_log "notice" "dry-run complete for plan dataset refresh"
+    return 0
+  fi
+
+  SERVER_ROOT="${SERVER_ROOT}" \
+  SERVER_MASTER_DIR="${SERVER_MASTER_DIR}" \
+  PLAN_DATA_DIR="${PLAN_DATA_DIR}" \
+  "${python_bin}" "${updater}" || {
+    usb_log "err" "plan dataset refresh failed (see stdout/stderr for details)"
+    return 1
+  }
+  usb_log "info" "plan datasets refreshed in ${PLAN_DATA_DIR}"
+}
+
 if [[ ${apply_from_usb} -eq 1 ]]; then
   usb_log "info" "applying USB contents to server (device=${DEVICE})"
   copy_from_usb "${USB_MOUNT}/master" "${SERVER_MASTER_DIR}"
   copy_from_usb "${USB_MOUNT}/docviewer" "${SERVER_DOC_DIR}"
+  refresh_plan_datasets
 else
   usb_log "notice" "server data newer; refreshing USB contents"
   copy_to_usb "${SERVER_MASTER_DIR}" "${USB_MOUNT}/master"

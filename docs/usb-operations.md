@@ -290,6 +290,7 @@ cd ~/RaspberryPiServer
 | `tool-backup-export.sh` | スナップショットを BACKUP USB へ退避 | `SNAPSHOT_DIR=/srv/rpi-server/snapshots`, `BACKUP_RETENTION=4`, `USB_BACKUP_LABEL=TM-BACKUP` |
 | `tool-snapshot.sh` | 日次スナップショット作成 | `SNAPSHOT_ROOT=/srv/rpi-server/snapshots`, `PG_URI` |
 | `lib/toolmaster-usb.sh` | 共通ライブラリ | `USB_LOG_DIR=/srv/rpi-server/logs`, `USB_MAX_RETRY=3` |
+| （内部処理）`tool-ingest-sync.sh` | USB から取り込んだ `production_plan.csv` / `standard_times.csv` を API 用ディレクトリへ配置 | `PLAN_DATA_DIR=/srv/rpi-server/data/plan`（環境変数で変更可） |
 
 運用環境に合わせて環境変数で上書きできるよう実装している。systemd unit からは `Environment=` 指定で渡す。
 
