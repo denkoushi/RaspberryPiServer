@@ -243,6 +243,10 @@
         docStatus.textContent = "状態: 表示中";
         setMessage(`表示中: ${data.filename}`, false);
         updateViewerState("viewer", partNumber);
+        notifyParent({
+          type: "dv-barcode",
+          part: partNumber,
+        });
       } catch (error) {
         console.error(error);
         setMessage("サーバーへの接続に失敗しました。ネットワークとログをご確認ください。", true);
