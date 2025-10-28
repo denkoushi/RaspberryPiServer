@@ -11,7 +11,12 @@ from flask import Flask, jsonify, request
 from werkzeug.exceptions import BadRequest, Unauthorized
 from flask_socketio import SocketIO
 
-from .document_viewer import document_viewer_bp
+try:
+    # When app/ is treated as a package (pytest, local scripts)
+    from .document_viewer import document_viewer_bp  # type: ignore
+except ImportError:
+    # Docker runtime executes /app/server.py as a module
+    from document_viewer import document_viewer_bp  # type: ignore
 
 
 DATABASE_URL = os.getenv(
