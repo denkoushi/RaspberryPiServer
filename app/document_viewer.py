@@ -179,3 +179,11 @@ def viewer_page():
         "api_token": VIEWER_API_TOKEN,
     }
     return render_template("document_viewer/viewer.html", config=config)
+
+
+@document_viewer_bp.route("/viewer/health")
+def viewer_health():
+    """
+    Health endpoint used by Window A UI to確認 DocumentViewer service availability.
+    """
+    return jsonify({"status": "ok", "docs_root": str(DOCUMENTS_ROOT)})
