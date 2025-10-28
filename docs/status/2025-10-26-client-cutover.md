@@ -9,8 +9,8 @@
   - `UPSTREAM_SOCKET_*` 環境変数で Socket.IO 接続先を切り替えられるよう改修。
   - `scripts/install_window_a_env.sh --with-dropin` を追加し、環境ファイルと systemd drop-in の展開を自動化。
   - README / RUNBOOK / `docs/right-pane-plan.md` に設定手順を追記。
+  - 2025-10-28: Pi4 で `psycopg2-binary==2.9.10` を含む依存を再インストールし、`sudo apt install -y build-essential python3-dev swig libpcsclite-dev pcscd postgresql-client` を導入。`toolmgmt.service` が `/etc/toolmgmt/window-a-client.env` を読み込み、`curl` + Socket.IO リスナーで RaspberryPiServer へ疎通できることを確認（docs/right-pane-plan.md を更新済み）。
 - 未実施（要実機）
-  - `/etc/systemd/system/toolmgmt.service.d/window-a.conf` の適用と `toolmgmt.service` 再起動。
   - 実機ブラウザでの LIVE 表示確認、`/api/v1/scans` 発行後の自動更新確認。
 
 ## 2. Window D（OnSiteLogistics / feature/logging-enhancements）
