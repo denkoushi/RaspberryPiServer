@@ -31,10 +31,10 @@
 
 3. **RaspberryPiServer への登録** ✅ 2025-10-26 完了 / 2025-10-26 ログ整備  
    - `app/server.py` の `create_app()` で Blueprint を登録。  
-   - systemd 環境ファイル（`/etc/default/raspi-server`）で `VIEWER_DOCS_DIR` / `VIEWER_API_TOKEN` / `VIEWER_CORS_ORIGINS` / `VIEWER_LOG_PATH` を設定できるようにした。  
-   - `VIEWER_LOG_PATH`（既定 `/srv/rpi-server/logs/document_viewer.log`）にローテート付きで REST アクセス、未検出、拒否事象を記録。Docker bind mount で `/srv/rpi-server/logs/` を永続化する。  
-   - `/etc/default/raspi-server` は `config/raspi-server.env.sample` をベースに展開し、`API_TOKEN` / `VIEWER_API_TOKEN` / `SOCKETIO_CORS_ORIGINS` を Window A 側のクライアント設定と必ず一致させる（差異があると 401 応答になる）。
-   - ※ UI ルート `/viewer` は未実装。Window A 側でクライアント UI を配信する場合は不要。必要に応じて別工程で追加する。
+  - systemd 環境ファイル（`/etc/default/raspi-server`）で `VIEWER_DOCS_DIR` / `VIEWER_API_TOKEN` / `VIEWER_CORS_ORIGINS` / `VIEWER_LOG_PATH` を設定できるようにした。  
+  - `VIEWER_LOG_PATH`（既定 `/srv/rpi-server/logs/document_viewer.log`）にローテート付きで REST アクセス、未検出、拒否事象を記録。Docker bind mount で `/srv/rpi-server/logs/` を永続化する。  
+  - `/etc/default/raspi-server` は `config/raspi-server.env.sample` をベースに展開し、`API_TOKEN` / `VIEWER_API_TOKEN` / `SOCKETIO_CORS_ORIGINS` を Window A 側のクライアント設定と必ず一致させる（差異があると 401 応答になる）。
+  - 2025-10-28: `/viewer` ルートを追加し、RaspberryPiServer 単体で DocumentViewer UI を提供できるようにした（Socket.IO / REST 連携、検索フォーム、簡易 UI を内蔵）。
 
 4. **Socket.IO イベント送出** ✅ 2025-10-26 完了  
    - `Flask-SocketIO` / `gevent` (+ `gevent-websocket`) を採用し、`/api/v1/scans` 成功時に `part_location_updated` / `scan_update` を broadcast。  

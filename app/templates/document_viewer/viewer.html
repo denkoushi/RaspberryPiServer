@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Document Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111c38;
+      --accent: #0ea5e9;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      font-family: "Segoe UI", "ヒラギノ角ゴ ProN", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      flex: 1 1 auto;
+    }
+
+    .status-pill {
+      border-radius: 999px;
+      padding: 0.25rem 0.9rem;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(148, 163, 184, 0.15);
+    }
+
+    .status-pill.is-live {
+      color: var(--success);
+    }
+
+    .status-pill.is-offline {
+      color: var(--danger);
+    }
+
+    main {
+      flex: 1 1 auto;
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.35);
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    label {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    input[type="text"] {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 12px;
+      padding: 0.7rem 1rem;
+      font-size: 1rem;
+      color: #0f172a;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35);
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    iframe {
+      width: 100%;
+      height: 78vh;
+      border: none;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .message {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .message.is-error {
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Document Viewer (RaspberryPiServer)</h1>
+    <span id="socketStatus" class="status-pill is-offline">● OFFLINE</span>
+    <span id="docStatus" class="status-pill">状態: 表示待ち</span>
+  </header>
+  <main>
+    <section class="panel">
+      <form id="lookupForm">
+        <div>
+          <label for="partInput">部品番号 / Part Number</label>
+          <input id="partInput" name="part" type="text" autocomplete="off" placeholder="例: TEST-001" />
+        </div>
+        <button type="submit">PDF を表示</button>
+      </form>
+      <div class="meta" id="metaInfo">
+        <span>最後に表示した部品番号: <strong id="metaPart">-</strong></span>
+        <span>最終更新: <strong id="metaUpdated">-</strong></span>
+      </div>
+      <p id="message" class="message">左側ペインでスキャンすると自動で表示が切り替わります。</p>
+    </section>
+    <section class="panel">
+      <iframe id="viewerFrame" title="PDF viewer"></iframe>
+    </section>
+</main>
+
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js" integrity="sha384-EHdcW7+EAKwnSYVtE6QmdnME73Io388E+zu/7kGJYy+JgS+9ZLxRlht/b5+ywOB4" crossorigin="anonymous"></script>
+  <script>
+    const CONFIG = {{ config | tojson }};
+    const partInput = document.getElementById("partInput");
+    const form = document.getElementById("lookupForm");
+    const frame = document.getElementById("viewerFrame");
+    const message = document.getElementById("message");
+    const metaPart = document.getElementById("metaPart");
+    const metaUpdated = document.getElementById("metaUpdated");
+    const docStatus = document.getElementById("docStatus");
+    const socketStatus = document.getElementById("socketStatus");
+
+    let lastResult = null;
+
+    async function fetchDocument(partNumber) {
+      if (!partNumber) {
+        setMessage("部品番号を入力してください。", true);
+        return;
+      }
+      setMessage("検索中…", false);
+      docStatus.textContent = "状態: 取得中";
+
+      try {
+        const url = `${CONFIG.api_base}/${encodeURIComponent(partNumber)}`;
+        const headers = CONFIG.api_token
+          ? { Authorization: `Bearer ${CONFIG.api_token}` }
+          : {};
+
+        const response = await fetch(url, { headers });
+        const data = await response.json();
+
+        if (!response.ok || !data.found) {
+          setMessage("PDF が見つかりません。USB 取り込みとファイル名をご確認ください。", true);
+          docStatus.textContent = "状態: 見つからない";
+          frame.src = "";
+          return;
+        }
+
+        lastResult = {
+          part: partNumber,
+          filename: data.filename,
+          url: data.url.startsWith("http") ? data.url : `${CONFIG.docs_base}/${data.filename}`,
+          timestamp: new Date().toISOString(),
+        };
+
+        frame.src = lastResult.url;
+        metaPart.textContent = partNumber;
+        metaUpdated.textContent = new Date().toLocaleString();
+        docStatus.textContent = "状態: 表示中";
+        setMessage(`表示中: ${data.filename}`, false);
+      } catch (error) {
+        console.error(error);
+        setMessage("サーバーへの接続に失敗しました。ネットワークとログをご確認ください。", true);
+        docStatus.textContent = "状態: エラー";
+      }
+    }
+
+    function setMessage(text, isError = false) {
+      message.textContent = text;
+      message.classList.toggle("is-error", isError);
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      fetchDocument(partInput.value.trim());
+    });
+
+    // --- Socket.IO 連携 ---
+    if (window.io) {
+      try {
+        const socket = io(CONFIG.socket_base, { path: CONFIG.socket_path });
+        socket.on("connect", () => {
+          socketStatus.textContent = "● LIVE";
+          socketStatus.classList.remove("is-offline");
+          socketStatus.classList.add("is-live");
+        });
+        socket.on("disconnect", () => {
+          socketStatus.textContent = "● OFFLINE";
+          socketStatus.classList.add("is-offline");
+          socketStatus.classList.remove("is-live");
+        });
+
+        socket.on("part_location_updated", (payload) => {
+          if (payload && payload.order_code) {
+            fetchDocument(payload.order_code);
+          }
+        });
+      } catch (error) {
+        console.warn("Socket.IO 接続に失敗しました:", error);
+        socketStatus.textContent = "● OFFLINE";
+        socketStatus.classList.add("is-offline");
+        setMessage("Socket.IO に接続できませんでした。REST ポーリングのみで動作します。", true);
+      }
+    } else {
+      console.warn("Socket.IO クライアントが読み込めませんでした。");
+      socketStatus.textContent = "● OFFLINE";
+      socketStatus.classList.add("is-offline");
+      setMessage("Socket.IO が読み込めなかったため、REST ポーリングのみで動作します。", true);
+    }
+
+    // クエリパラメータで part を指定できるようにする
+    const params = new URLSearchParams(location.search);
+    const initialPart = params.get("part") || "";
+    if (initialPart) {
+      partInput.value = initialPart;
+      fetchDocument(initialPart);
+    }
+  </script>
+</body>
+</html>

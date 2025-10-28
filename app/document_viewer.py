@@ -12,8 +12,10 @@ from flask import (
     abort,
     current_app,
     jsonify,
+    render_template,
     request,
     send_from_directory,
+    url_for,
 )
 
 
@@ -159,3 +161,21 @@ def serve_document(filename: str):
         _log_warning("Invalid document access attempt: %s", filename)
         abort(404)
     return send_from_directory(DOCUMENTS_ROOT, filename, mimetype="application/pdf")
+
+
+@document_viewer_bp.route("/viewer")
+def viewer_page():
+    """
+    Render a lightweight DocumentViewer UI that runs directly on RaspberryPiServer.
+    既存の Window A 依存をなくし、サーバー単体で PDF を配信・表示できるようにする。
+    """
+    api_sample = url_for("document_viewer.get_document", part_number="__sample__", _external=True)
+    docs_sample = url_for("document_viewer.serve_document", filename="__sample__.pdf", _external=True)
+    config = {
+        "api_base": api_sample.rsplit("/", 1)[0],
+        "docs_base": docs_sample.rsplit("/", 1)[0],
+        "socket_base": request.url_root.rstrip("/"),
+        "socket_path": "/socket.io",
+        "api_token": VIEWER_API_TOKEN,
+    }
+    return render_template("document_viewer/viewer.html", config=config)
