@@ -58,3 +58,13 @@
 - `/etc/default/raspi-server` のサンプル（`config/raspi-server.env.sample`）に DocumentViewer 用 `VIEWER_LOG_PATH` を追加。Window A クライアント側は DocumentViewer リポジトリの `config/docviewer.env.sample` を基に `/etc/default/docviewer` を作成し、サーバーとクライアントの設定が同期するよう整備する。
 - USB INGEST 完了時に `/internal/plan-cache/refresh` を自動実行し、生産計画・標準工数 API が即時に新データを返すようにした。
 - DocumentViewer 側の検証手順は `DocumentViewer/docs/test-notes/2025-10-26-docviewer-env.md` を参照し、RaspberryPiServer の RUNBOOK・Mirror 検証と合わせて更新する。
+
+### 次期対応（監視・共通認証）
+
+| 優先度 | テーマ | 次アクション |
+| --- | --- | --- |
+| 高 | systemd / watchdog 整備 | `raspi-server.service` / `toolmgmt.service` に `Restart=on-failure`・`WatchdogSec`・`OnFailure` を設定し、失敗時に通知スクリプトを実行。RUNBOOK のトラブルシュート章へ確認手順を追記。 |
+| 高 | API トークン運用統一 | `scripts/manage_api_token.py` を共通ライブラリ化し、RaspberryPiServer / Window A / Pi Zero のトークン発行・ローテーション履歴を `/srv/rpi-server/logs/api_token.log` に記録。`docs/security-overview.md` と RUNBOOK を更新。 |
+| 中 | ログローテーション | `/srv/rpi-server/logs/*.log` と Window A ログを `logrotate.d/toolmaster` に登録し、保持期間・圧縮方針を定義。実装後に確認コマンドを RUNBOOK へ追加。 |
+| 中 | 運用監視レポート | Pi5 上に `toolmaster-status`（仮）スクリプトを配置し、`systemctl` / `journalctl` / `curl` 結果を集約した日次レポートを Slack/メール配信。`docs/status/` に週次レポートテンプレートを準備。 |
+| 低 | TLS / DNS 整備 | 工場内 Wi-Fi 移行に合わせて `raspi-server.local` の mDNS から固定 DNS/TLS へ移行する計画を `docs/architecture.md` に追記。 |

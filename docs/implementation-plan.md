@@ -30,6 +30,34 @@
 | Cutover | Window A からサーバー機能を外し、クライアント専用に再構成 | `feature/server-migration` | RaspberryPiServer への移行完了後に実施し、ロールバック手順を保持 |
 | Archive | 必要であれば README/RUNBOOK を更新し、旧環境の役割を明示 | `feature/archive-notes` | トラブル時のロールバック手順を保持 |
 
+#### 2.2.1 クライアント UI リファクタ計画（2025-10-28 更新）
+
+**現状課題（抜粋）**
+- `templates/index.html` に DocumentViewer／所在一覧／工程設定 UI すべてが集約され、1,600 行超のテンプレートにプレーン JS が直書きされている。責務分離ができずレビュー性が低い。
+- グローバル関数と即時関数が混在し、Socket.IO／REST の再接続・エラー処理が各所で重複。テスト困難かつ回復性が不明確。
+- Flask 側 (`app_flask.py`) で API クライアント生成・Socket.IO 初期化・ビュー描画が同一モジュールに集中し、pytest のモックが煩雑。
+- postMessage プロトコルの仕様が暗黙的で、DocumentViewer と右ペインの連携動作を第三者が追跡しづらい。
+
+**リファクタ方針**
+1. テンプレート分割: 右ペイン UI を `templates/right_panel/` 配下に機能単位で分割し、Jinja マクロ／部品化を進める。共通レイアウトを Base テンプレートへ移す。
+2. フロントエンドモジュール化: `static/js/` に `socketClient.js`、`docViewerPanel.js`、`partLocationsPanel.js` 等の ES モジュールを配置し、グローバル変数依存を排除。Webpack 等は導入せず、原則ネイティブ import で完結させる。
+3. イベント/状態管理: Socket.IO と REST ポーリングを抽象化した `useRealtimeFeed()` ヘルパーを実装し、所在一覧 UI から切り離す。postMessage プロトコルは `viewerMessaging.js` に整理して型チェック用のアサーションを提供。
+4. Flask サービス分割: `app_flask.py` をブループリント＋サービス層へ再構築し、API クライアント初期化とビュー描画のテストを易化。`socketio` の初期化をラッパ経由にしてユニットテストで差し替え可能にする。
+5. ロギング・エラー導線: UI の通知メッセージとサーバー側の監査ログ（API トークン管理など）のフォーマットを統一し、RUNBOOK のトラブルシュート手順と連動させる。
+
+**タスク分解（想定ブランチ: `feature/windowa-ui-refactor`）**
+- T1: 右ペインテンプレートの分割と Jinja マクロ化（DocumentViewer パネル／所在一覧パネル／工程設定ウィジェット）。
+- T2: `static/js/` モジュール化＋ビルドレス構成整備、Socket.IO ラッパの単体テスト追加。
+- T3: Flask アプリ分割（`blueprints/operations.py`、`blueprints/maintenance.py` 等）とサービス層導入。pytest でモックするためのインタフェース定義。
+- T4: postMessage プロトコル仕様書を `docs/right-pane-plan.md` に追記し、Window A ↔ DocumentViewer 間のイベントフロー図を作成。
+- T5: リファクタ後の結合テスト（curl + Socket.IO listener + ブラウザ操作）とログ確認手順を `docs/test-notes/` に追加。
+
+**リスクと緩和策**
+- 動的 import 非対応ブラウザを考慮し、ESM を使用する場合は `<script type="module">` とレガシー fallback を準備。Intl API 未対応端末は現行要件で想定外のため、使用ブラウザ（Chromium ベース）での確認を継続。
+- UI 分割に伴い CSS のスコープ崩れが懸念されるため、`static/css/right-panel.css` を新設し、BEM 相当のクラス命名で衝突を回避。
+
+この計画に基づき、Window A リファクタの設計・実装・ドキュメント更新を順次進行する。
+
 ### 2.3 DocumentViewer（Window B）
 
 | フェーズ | 作業内容 | ブランチ例 | 検証ポイント |
@@ -55,6 +83,29 @@
 - **データ整合性**: 日次チェックリスト（Pi Zero → API → DocumentViewer → USB）を用い、送信から表示までの一連フローを手動で検証する。
 - **ロールバック**: 各リポジトリで `git checkout main` / `docker compose down` / `systemctl disable` を実施し、旧構成へ復帰できるか確認。
 - **RUNBOOK**: 切替手順書、トラブルシュート、連絡フローをまとめ、現場共有する。
+
+### 3.1 エンドツーエンド同期テスト基盤（新規）
+
+**目的**: Pi Zero 2 W → RaspberryPiServer → Window A → DocumentViewer のフローを自動検証し、14 日トライアル中の異常を即把握する。
+
+**構成案**
+- `tools/e2e-sync/validate_sync_flow.py`（新規）: 各端末へ SSH / HTTP 要求を発行し、下記ステップを実行。
+  1. テスト用 TM-INGEST イメージをマウントし、`tool-ingest-sync.sh` を Pi5 上で実行。ログ (`usb_ingest.log`) に成功と `plan cache refresh` が記録されることを確認。
+  2. Pi5 の REST API (`/api/v1/production-plan`, `/api/v1/part-locations`) をクエリし、タイムスタンプが更新されたことを確認。
+  3. Window A に対して Selenium (Chromium) あるいは Playwright を用い、Socket.IO ステータスが `LIVE` に遷移し右ペインが自動更新されることを検証。
+  4. Pi Zero へ `ssh handheld@pi-zero 'mirrorctl send-test --part testpart'` のようなテストコマンドを送信し、`/api/v1/scans` が 201 を返し、Window A の所在一覧に反映されるか確認。
+  5. 各ステップのログ（API レスポンス、Socket.IO イベント、UI スクリーンショット）を `docs/test-notes/YYYY-MM-DD-sync-e2e.md` に追記。
+- systemd timer `e2e-sync-check.timer` を Pi5 に配置し、日次午前帯にリハーサルを自動実行。結果は Slack / ログ監視に通知。
+- 失敗時は `mirrorctl disable --reason e2e-failure` を自動実行し、RUNBOOK の手順に沿って現場へエスカレーション。
+
+**必要実装**
+- Python ラッパで Pi Zero・Window A への SSH 実行を標準化（鍵管理／認証情報は `/etc/toolmgmt/e2e-sync.env` に保存）。
+- Socket.IO リスナー（Python or Node）を用意し、イベント受信状況を判定。
+- Playwright/Selenium を用いる場合、Window A 上の kiosk ブラウザに影響しないヘッドレス実行方法を検討（別コンテナ or 仮想ディスプレイ）。
+
+**ドキュメント**
+- `docs/test-notes/e2e-sync-template.md`（新規）に記録テンプレートを用意。
+- RUNBOOK へ緊急時の対応（timer 一時停止、結果ログの確認手順）を追記予定。
 
 ## 4. マイルストーン候補
 
