@@ -183,14 +183,35 @@
     const socketStatus = document.getElementById("socketStatus");
 
     let lastResult = null;
+    let lastStation = null;
+
+    const notifyParent = (payload) => {
+      if (!window.parent) return;
+      try {
+        window.parent.postMessage(payload, "*");
+      } catch (error) {
+        console.warn("postMessage failed:", error);
+      }
+    };
+
+    const updateViewerState = (state, part = null) => {
+      notifyParent({
+        type: "viewer-state",
+        state,
+        part: part || null,
+        station: lastStation,
+      });
+    };
 
     async function fetchDocument(partNumber) {
       if (!partNumber) {
         setMessage("部品番号を入力してください。", true);
+        updateViewerState("idle");
         return;
       }
       setMessage("検索中…", false);
       docStatus.textContent = "状態: 取得中";
+      updateViewerState("searching", partNumber);
 
       try {
         const url = `${CONFIG.api_base}/${encodeURIComponent(partNumber)}`;
@@ -205,6 +226,7 @@
           setMessage("PDF が見つかりません。USB 取り込みとファイル名をご確認ください。", true);
           docStatus.textContent = "状態: 見つからない";
           frame.src = "";
+          updateViewerState("error", partNumber);
           return;
         }
 
@@ -220,10 +242,12 @@
         metaUpdated.textContent = new Date().toLocaleString();
         docStatus.textContent = "状態: 表示中";
         setMessage(`表示中: ${data.filename}`, false);
+        updateViewerState("viewer", partNumber);
       } catch (error) {
         console.error(error);
         setMessage("サーバーへの接続に失敗しました。ネットワークとログをご確認ください。", true);
         docStatus.textContent = "状態: エラー";
+        updateViewerState("error", partNumber);
       }
     }
 
@@ -276,7 +300,38 @@
     if (initialPart) {
       partInput.value = initialPart;
       fetchDocument(initialPart);
+    } else {
+      updateViewerState("idle");
     }
+
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "station-change") {
+        lastStation = {
+          process: data.process || "",
+          available: Array.isArray(data.available) ? data.available : [],
+          updated_at: data.updated_at || null,
+        };
+        const info = [];
+        if (lastStation.process) info.push(`工程: ${lastStation.process}`);
+        if (lastStation.available.length) info.push(`候補: ${lastStation.available.join(", ")}`);
+        if (info.length) {
+          setMessage(info.join(" / "), false);
+        }
+      } else if (data.type === "focus-request") {
+        partInput?.focus();
+      } else if (data.type === "viewer-return") {
+        lastResult = null;
+        frame.src = "";
+        metaPart.textContent = "-";
+        metaUpdated.textContent = "-";
+        setMessage("待機中です。部品番号を入力してください。", false);
+        docStatus.textContent = "状態: 待機中";
+        updateViewerState("idle");
+      }
+    });
   </script>
 </body>
 </html>
