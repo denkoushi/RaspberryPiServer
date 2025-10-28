@@ -33,6 +33,7 @@
    - `app/server.py` の `create_app()` で Blueprint を登録。  
    - systemd 環境ファイル（`/etc/default/raspi-server`）で `VIEWER_DOCS_DIR` / `VIEWER_API_TOKEN` / `VIEWER_CORS_ORIGINS` / `VIEWER_LOG_PATH` を設定できるようにした。  
    - `VIEWER_LOG_PATH`（既定 `/srv/rpi-server/logs/document_viewer.log`）にローテート付きで REST アクセス、未検出、拒否事象を記録。Docker bind mount で `/srv/rpi-server/logs/` を永続化する。  
+   - `/etc/default/raspi-server` は `config/raspi-server.env.sample` をベースに展開し、`API_TOKEN` / `VIEWER_API_TOKEN` / `SOCKETIO_CORS_ORIGINS` を Window A 側のクライアント設定と必ず一致させる（差異があると 401 応答になる）。
    - ※ UI ルート `/viewer` は未実装。Window A 側でクライアント UI を配信する場合は不要。必要に応じて別工程で追加する。
 
 4. **Socket.IO イベント送出** ✅ 2025-10-26 完了  
@@ -46,6 +47,7 @@
    - `DOCUMENT_VIEWER_URL` を `http://raspi-server.local:8501/viewer` に更新。
    - `/etc/default/docviewer` は DocumentViewer リポジトリの `config/docviewer.env.sample` をベースに作成し、`VIEWER_API_BASE` / `VIEWER_SOCKET_BASE` / `VIEWER_LOCAL_DOCS_DIR` / `VIEWER_LOG_PATH` などを設定する。
    - API トークンを RaspberryPiServer 側に合わせて再発行し、環境変数 `VIEWER_API_TOKEN` を DocumentViewer フロント／tool-management-system02 双方で設定。
+   - `/etc/default/window-a-client` の `DATABASE_URL` を RaspberryPiServer の PostgreSQL（例: `postgresql://app:app_password@192.168.10.230:15432/appdb`）へ更新し、`RASPI_SERVER_API_TOKEN` を `/etc/default/raspi-server` の `API_TOKEN` と同じ値に揃える。更新後は `sudo systemctl restart toolmgmt.service` で反映する（サービス未登録時は `scripts/install_window_a_env.sh --with-dropin` を再実行）。
    - DocumentViewer リポジトリ側で `VIEWER_SOCKET_*` 環境変数に対応し、`part_location_updated` 受信時に PDF を自動表示できるようにした（2025-10-26）。
 
 6. **データ移行**

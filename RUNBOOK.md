@@ -147,6 +147,13 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
    **想定結果**: `/srv/rpi-server/snapshots/yyyymmdd_hhmmss/db/pg_dump.sql` が作成される。ログに `snapshot completed` が出力。  
    **エラー時の確認**: `pg_dump` が見つからない場合は `postgresql-client` のインストールと `PATH` を確認。接続拒否の場合は `pg_hba.conf` 等を調整。
 
+> **事前チェック**: `/srv/rpi-server` 配下に `docker-compose.yml` / `.env` / `Dockerfile` / `app/` が揃っていることを確認する。揃っていない場合は以下例のようにリポジトリから再配置する。
+> ```bash
+> sudo rsync -a ~/RaspberryPiServer/docker-compose.yml ~/RaspberryPiServer/Dockerfile /srv/rpi-server/
+> sudo rsync -a ~/RaspberryPiServer/app/ /srv/rpi-server/app/
+> sudo cp ~/RaspberryPiServer/.env.example /srv/rpi-server/.env  # 本番値へ編集必須
+> ```
+
 8. systemd サービス導入  
    **コマンド**
    ```bash
@@ -156,7 +163,25 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
    sudo systemctl enable --now raspi-server.service
    ```
    **想定結果**: `systemctl status raspi-server.service` が `Active: active (exited)` を示し、`docker compose ps` で `postgres` / `raspberrypiserver-app-1` が起動済み。  
-   **エラー時の確認**: `journalctl -u raspi-server.service` で詳細を確認。`WorkingDirectory`（デフォルト `/srv/rpi-server`）や `.env` の配置 `/srv/rpi-server/.env` を再確認。
+   **エラー時の確認**:
+   - `journalctl -u raspi-server.service` で詳細を確認。`WorkingDirectory`（デフォルト `/srv/rpi-server`）や `.env` の配置 `/srv/rpi-server/.env` を再確認。
+   - `no configuration file provided` が表示される場合は `/srv/rpi-server` に `docker-compose.yml` / `.env` / `Dockerfile` / `app/` がコピーされているか確認し、リポジトリから `sudo rsync -a ~/RaspberryPiServer/docker-compose.yml ~/RaspberryPiServer/Dockerfile /srv/rpi-server/`、`sudo rsync -a ~/RaspberryPiServer/app/ /srv/rpi-server/app/` のように再配置する（`.env` は `~/RaspberryPiServer/.env.example` をベースに本番値へ書き換えて配置）。
+   - 旧構成のコンテナ (`postgres` / `raspberrypiserver-app-1`) が残っていると名前やポートが競合するため、`sudo docker ps` → `sudo docker stop <name>` → `sudo docker rm <name>` で停止・削除してから再試行する。
+   - `Bind for 0.0.0.0:8501 failed` が出る場合は `sudo lsof -iTCP:8501 -sTCP:LISTEN` でポート占有プロセスを特定し、停止後に `sudo docker compose up -d` を再実行する。
+   - REST API 用の Bearer トークンを使用する場合は `/etc/default/raspi-server` に `API_TOKEN=...` を設定し、`sudo systemctl restart raspi-server.service` で反映する。Window A（tool-management-system02）からアクセスする際は `/etc/default/window-a-client` の `RASPI_SERVER_API_TOKEN` / `DATABASE_URL` を同じ値へ合わせ、`sudo systemctl restart toolmgmt.service` を実行する。
+   - `toolmgmt.service` が見つからない場合は Window A のリポジトリ（`~/tool-management-system02`）で `sudo ./scripts/install_window_a_env.sh --with-dropin` を再実行し、`/etc/systemd/system/toolmgmt.service` と `/etc/default/window-a-client` が展開されているか確認する。
+
+   **既存コンテナ・ポート競合解消のテンプレート**
+   ```bash
+   cd /srv/rpi-server
+   sudo docker ps -a
+   sudo docker stop postgres || true
+   sudo docker stop raspberrypiserver-app-1 || true
+   sudo docker rm postgres || true
+   sudo docker rm raspberrypiserver-app-1 || true
+   sudo lsof -iTCP:8501 -sTCP:LISTEN  # まだ占有されている場合はプロセスを停止
+   sudo docker compose up -d
+   ```
 
 9. バックアップ書き出し（dry-run）  
    **コマンド**
