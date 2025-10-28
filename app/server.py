@@ -1,11 +1,8 @@
-import csv
 import json
 import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
-
 import psycopg
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import BadRequest, Unauthorized
@@ -14,9 +11,11 @@ from flask_socketio import SocketIO
 try:
     # When app/ is treated as a package (pytest, local scripts)
     from .document_viewer import document_viewer_bp  # type: ignore
+    from .plan_cache import PlanCache  # type: ignore
 except ImportError:
     # Docker runtime executes /app/server.py as a module
     from document_viewer import document_viewer_bp  # type: ignore
+    from plan_cache import PlanCache  # type: ignore
 
 
 DATABASE_URL = os.getenv(
@@ -43,6 +42,8 @@ PLAN_DATASETS = {
     },
 }
 
+_plan_cache = PlanCache(PLAN_DATA_DIR, PLAN_DATASETS)
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -50,6 +51,12 @@ def create_app() -> Flask:
     _init_db()
     app.register_blueprint(document_viewer_bp)
     socketio.init_app(app, cors_allowed_origins=SOCKETIO_CORS_ORIGINS)
+
+    try:
+        summary = _plan_cache.refresh()
+        app.logger.info("Initial plan cache loaded: %s", summary)
+    except Exception as exc:  # pylint: disable=broad-except
+        app.logger.exception("Initial plan cache refresh failed: %s", exc)
 
     @app.get("/healthz")
     def healthz():
@@ -156,6 +163,22 @@ def create_app() -> Flask:
         saved = _save_station_config(config)
         return jsonify(saved)
 
+    @app.post("/internal/plan-cache/refresh")
+    def refresh_plan_cache():
+        _enforce_token()
+        try:
+            summary = _plan_cache.refresh()
+        except Exception as exc:  # pylint: disable=broad-except
+            app.logger.exception("Plan cache refresh failed: %s", exc)
+            return jsonify({"status": "error", "error": str(exc)}), 500
+        response = {
+            "status": "ok",
+            "refreshed": summary,
+            "loaded_at": _plan_cache.loaded_at_iso(),
+        }
+        app.logger.info("Plan cache refreshed: %s", summary)
+        return jsonify(response)
+
     return app
 
 
@@ -187,41 +210,10 @@ def _load_plan_dataset(key: str) -> dict:
     if key not in PLAN_DATASETS:
         raise BadRequest("unknown_dataset")
 
-    cfg = PLAN_DATASETS[key]
-    path = PLAN_DATA_DIR / cfg["filename"]
-    result = {
-        "label": cfg["label"],
-        "entries": [],
-        "updated_at": None,
-        "error": None,
-    }
-
-    if not path.exists():
-        result["error"] = f"{cfg['label']} not found"
-        return result
-
     try:
-        with path.open("r", encoding="utf-8-sig", newline="") as fh:
-            reader = csv.DictReader(fh)
-            headers = reader.fieldnames or []
-            if headers != cfg["columns"]:
-                result["error"] = f"unexpected columns: {headers}"
-                return result
-            for row in reader:
-                normalized = {column: row.get(column, "") for column in cfg["columns"]}
-                result["entries"].append(normalized)
-        result["updated_at"] = _get_file_mtime(path)
-    except Exception as exc:  # pylint: disable=broad-except
-        result["error"] = f"failed to load dataset: {exc}"
-    return result
-
-
-def _get_file_mtime(path: Path) -> Optional[str]:
-    try:
-        timestamp = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-        return _to_utc_iso(timestamp)
-    except Exception:  # pylint: disable=broad-except
-        return None
+        return _plan_cache.get_dataset(key)
+    except KeyError as exc:
+        raise BadRequest(str(exc)) from exc
 
 
 def _load_station_config() -> dict:

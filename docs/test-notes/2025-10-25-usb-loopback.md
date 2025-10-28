@@ -15,6 +15,7 @@
 | --- | --- | --- |
 | INGEST dry-run | `sudo scripts/tool-ingest-sync.sh --device /dev/loop1 --dry-run` | 差分表示を確認。 |
 | INGEST 本実行 | `sudo scripts/tool-ingest-sync.sh --device /dev/loop1` | サーバー側 CSV/`meta.json` が更新。USB 側も書き戻し済み。 |
+| Plan cache refresh | `/srv/rpi-server/logs/usb_ingest.log` に `plan cache refresh` ログを確認 | `/internal/plan-cache/refresh` が自動呼び出しされ、REST が即時更新されることを確認。 |
 | DIST dry-run | `sudo scripts/tool-dist-export.sh --device /dev/loop2 --dry-run` | 差分表示。 |
 | DIST 本実行 | `sudo scripts/tool-dist-export.sh --device /dev/loop2` | USB に `master/` `docviewer/` が出力。 |
 | DIST 同期 dry-run | `scripts/tool-dist-sync.sh --device /dev/loop2 --dry-run` | `/srv/rpi-server/logs/usb_dist_sync.log` に差分記録。 |

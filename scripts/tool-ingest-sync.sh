@@ -15,6 +15,10 @@ SERVER_MASTER_DIR="${SERVER_MASTER_DIR:-${SERVER_ROOT}/master}"
 SERVER_DOC_DIR="${SERVER_DOC_DIR:-${SERVER_ROOT}/docviewer}"
 PLAN_DATA_DIR="${PLAN_DATA_DIR:-${SERVER_ROOT}/data/plan}"
 
+PLAN_REFRESH_URL="${PLAN_REFRESH_URL:-http://127.0.0.1:8501/internal/plan-cache/refresh}"
+PLAN_REFRESH_TIMEOUT="${PLAN_REFRESH_TIMEOUT:-5}"
+RASPI_SERVER_ENV_FILE="${RASPI_SERVER_ENV_FILE:-/etc/default/raspi-server}"
+
 DEVICE=""
 DRY_RUN=0
 FORCE=0
@@ -202,11 +206,62 @@ refresh_plan_datasets() {
   usb_log "info" "plan datasets refreshed in ${PLAN_DATA_DIR}"
 }
 
+load_api_token() {
+  if [[ -n "${API_TOKEN:-}" ]]; then
+    return
+  fi
+  if [[ -f "${RASPI_SERVER_ENV_FILE}" ]]; then
+    local line token_value
+    line=$(grep -E '^[[:space:]]*API_TOKEN=' "${RASPI_SERVER_ENV_FILE}" | tail -n 1 || true)
+    if [[ -n "${line}" ]]; then
+      token_value="${line#*=}"
+      token_value="${token_value%$'\r'}"
+      token_value="${token_value%\"}"
+      token_value="${token_value#\"}"
+      API_TOKEN="${token_value}"
+    fi
+  fi
+}
+
+notify_plan_cache_refresh() {
+  if [[ ${DRY_RUN} -eq 1 ]]; then
+    usb_log "notice" "skip plan cache refresh (dry-run)"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    usb_log "warning" "curl not found; skipping plan cache refresh"
+    return 0
+  fi
+
+  local url="${PLAN_REFRESH_URL}"
+  local token="${PLAN_REFRESH_TOKEN:-${API_TOKEN:-}}"
+  local output
+  local status
+  local curl_args=(curl -fsS --max-time "${PLAN_REFRESH_TIMEOUT}" -X POST)
+  if [[ -n "${token}" ]]; then
+    curl_args+=(-H "Authorization: Bearer ${token}")
+  fi
+  curl_args+=("${url}")
+
+  if output=$("${curl_args[@]}" 2>&1); then
+    usb_log "info" "plan cache refresh triggered: ${output}"
+    return 0
+  fi
+
+  status=$?
+  usb_log "err" "plan cache refresh failed (exit=${status}): ${output}"
+  return "${status}"
+}
+
+load_api_token
+
 if [[ ${apply_from_usb} -eq 1 ]]; then
   usb_log "info" "applying USB contents to server (device=${DEVICE})"
   copy_from_usb "${USB_MOUNT}/master" "${SERVER_MASTER_DIR}"
   copy_from_usb "${USB_MOUNT}/docviewer" "${SERVER_DOC_DIR}"
   refresh_plan_datasets
+  notify_plan_cache_refresh || true
 else
   usb_log "notice" "server data newer; refreshing USB contents"
   copy_to_usb "${SERVER_MASTER_DIR}" "${USB_MOUNT}/master"

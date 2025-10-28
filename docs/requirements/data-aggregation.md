@@ -17,13 +17,13 @@
 
 ## 3. Data Flow
 1. USB 取り込み (`tool-ingest-sync.sh`) が生産計画／標準工数 CSV を `/srv/rpi-server/data/plan/` に配置。（2025-10-27 実装）
-2. サーバー起動時またはインポート完了時に、CSV を読み込みキャッシュ（JSON）を生成。API はキャッシュから返す。
+2. サーバー起動時および `tool-ingest-sync.sh` 完了後に、`PlanCache`（`/internal/plan-cache/refresh`）で CSV を読み込み JSON キャッシュを生成し、API はキャッシュから返す。
 3. station 設定は `/srv/rpi-server/config/station.json` に保存し、API を通じて読み書きする。
 4. 所在一覧は現在と同様、PostgreSQL `part_locations` を直接参照。
 
 ## 4. Implementation Tasks
 - Flask (`app/server.py`) に上記 API を追加。必要に応じて Blueprint 分割。
-- CSV キャッシュ生成モジュールを追加（`plan_cache.py` から再利用 or 移植）。
+- CSV キャッシュ生成モジュールを追加（`app/plan_cache.py` 実装済み、`/internal/plan-cache/refresh` エンドポイント経由で更新）。
 - station 設定の保存先をサーバー側に移動し、環境変数でパスを調整可能にする。
 - API の単体テスト（pytest）を整備。CSV/JSON/DB のテストデータを用意。
 - `docker-compose.yml` 等に必要なボリューム（`/srv/rpi-server/data`、`config`）を明示。

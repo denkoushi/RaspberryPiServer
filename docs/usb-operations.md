@@ -200,6 +200,9 @@ WantedBy=multi-user.target
 - 環境変数
   - `USB_LOG_DIR=/srv/rpi-server/logs`
   - `USB_MAX_RETRY=3`
+  - `PLAN_REFRESH_URL`（既定: `http://127.0.0.1:8501/internal/plan-cache/refresh`）
+  - `PLAN_REFRESH_TIMEOUT`（既定: 5 秒）
+  - `PLAN_REFRESH_TOKEN`（未指定時は `/etc/default/raspi-server` の `API_TOKEN` を自動読込）
 - テスト項目
   - 正常マウント・アンマウント
   - シグネチャ不一致時にエラーコード 2 を返す
@@ -214,7 +217,8 @@ WantedBy=multi-user.target
   3. `meta.json` と `stat` のタイムスタンプで新旧比較
   4. サーバー側データを更新（`/srv/rpi-server/master/`, `/srv/rpi-server/docviewer/`）
   5. サーバー側最新データを USB メモリへ書き戻し
-  6. ログへ成功／失敗を記録し、マウント解除
+  6. 内部エンドポイント `/internal/plan-cache/refresh` を呼び出して REST 用キャッシュを即時更新（トークンは `/etc/default/raspi-server` の `API_TOKEN` を自動読込）
+  7. ログへ成功／失敗を記録し、マウント解除
 - テストケース
   - 正常系: 新しい CSV を持ち込んでサーバーへ反映
   - 古いデータ: USB メモリが古い場合はサーバー内容が優先される
@@ -286,7 +290,7 @@ cd ~/RaspberryPiServer
 
 | スクリプト | 主な用途 | 既定ディレクトリ / 環境変数 |
 | --- | --- | --- |
-| `tool-ingest-sync.sh` | INGEST USB → サーバー同期 | `SERVER_ROOT=/srv/rpi-server`, `SERVER_MASTER_DIR`, `SERVER_DOC_DIR`, `USB_INGEST_LABEL=TM-INGEST` |
+| `tool-ingest-sync.sh` | INGEST USB → サーバー同期 | `SERVER_ROOT=/srv/rpi-server`, `SERVER_MASTER_DIR`, `SERVER_DOC_DIR`, `USB_INGEST_LABEL=TM-INGEST`, `PLAN_REFRESH_URL`, `PLAN_REFRESH_TIMEOUT`, `PLAN_REFRESH_TOKEN` |
 | `tool-dist-export.sh` | サーバー → DIST USB へエクスポート | 同上 + `USB_DIST_LABEL=TM-DIST` |
 | `tool-dist-sync.sh` | DIST USB → 端末ローカル同期 | `LOCAL_MASTER_DIR=/opt/toolmaster/master`, `LOCAL_DOC_DIR=/opt/toolmaster/docviewer`, `USB_DIST_LABEL=TM-DIST` |
 | `tool-backup-export.sh` | スナップショットを BACKUP USB へ退避 | `SNAPSHOT_DIR=/srv/rpi-server/snapshots`, `BACKUP_RETENTION=4`, `USB_BACKUP_LABEL=TM-BACKUP` |

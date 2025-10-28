@@ -66,4 +66,5 @@
 ## Notes
 - CSV 読み込み `PLAN_DATA_DIR` は `/srv/rpi-server/data/plan`（環境変数で変更可）。
 - station 設定ファイル `STATION_CONFIG_PATH` は `/srv/rpi-server/config/station.json`。
-- 今後: USB 取り込み後に API キャッシュを更新するパイプライン、OpenAPI ドキュメント整備、Window A 側の API 切り替え実装を進める。
+- `/internal/plan-cache/refresh` エンドポイントで `PlanCache` をリフレッシュし、`tool-ingest-sync.sh` から自動呼び出し済み。
+- 今後: OpenAPI ドキュメント整備と Window A 側の API 切り替え実装を進める。
