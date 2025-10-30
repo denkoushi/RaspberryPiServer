@@ -12,7 +12,7 @@
 
 ## 移行タスク（旧 Window A サーバー縮退計画）
 
-- [ ] Window A に残るクライアント機能の棚卸し（DocumentViewer、工具管理 UI、標準工数、日程、構内物流など）
+- [x] Window A に残るクライアント機能の棚卸し（DocumentViewer、工具管理 UI、標準工数、日程、構内物流など）—`docs/right-pane-plan.md` に整理済み
 - [ ] `docs/implementation-plan.md` に移行順序と依存関係を追記し、RaspberryPiServer へ移すサービスの一覧を整理
 - [x] RaspberryPiServer へ DocumentViewer 用 REST API / Socket.IO を移植し、Pi Zero・DocumentViewer 間で連携確認（2025-10-26 ハンドテスト完了、`docs/test-notes/2025-10-26-socketio-verification.md` 参照）
 - [ ] Window A の DocumentViewer をクライアント専用構成へ更改し、`VIEWER_API_BASE` 等で RaspberryPiServer を参照
@@ -58,6 +58,7 @@
 - `/etc/default/raspi-server` のサンプル（`config/raspi-server.env.sample`）に DocumentViewer 用 `VIEWER_LOG_PATH` を追加。Window A クライアント側は DocumentViewer リポジトリの `config/docviewer.env.sample` を基に `/etc/default/docviewer` を作成し、サーバーとクライアントの設定が同期するよう整備する。
 - USB INGEST 完了時に `/internal/plan-cache/refresh` を自動実行し、生産計画・標準工数 API が即時に新データを返すようにした。
 - DocumentViewer 側の検証手順は `DocumentViewer/docs/test-notes/2025-10-26-docviewer-env.md` を参照し、RaspberryPiServer の RUNBOOK・Mirror 検証と合わせて更新する。
+- `/srv/rpi-server/logs/` 週次点検用に `scripts/check_storage_logs.sh` を追加し、`docs/checklists/weekly-log-review.md` で手順化。RUNBOOK へも参照を掲載済み。
 
 ### 次期対応（監視・共通認証）
 

@@ -69,6 +69,8 @@
 - テストログ（Docker Compose app サービス）: `docs/test-notes/2025-10-26-app-compose.md`
 - テストログ（Socket.IO 検証）: `docs/test-notes/2025-10-26-socketio-verification.md`
 - DocumentViewer サーバー移行計画: `docs/documentviewer-migration.md`
+- 週次ログ点検チェックリスト: `docs/checklists/weekly-log-review.md`
+- Window A 右ペイン機能モジュール化プラン: `docs/right-pane-plan.md`
 - 運用手順: `RUNBOOK.md`
 - 障害対応テンプレート: `docs/incident-response.md`（必要に応じて新規作成）
 

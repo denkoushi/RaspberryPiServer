@@ -314,6 +314,13 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 - `sudo ./scripts/check_app_logs.sh` を実行すると、`docker compose logs app` の WARN/ERROR を抽出できます。
 - 既知の文言（`attribute 'version' is obsolete`）は自動的に除外されます。その他の WARN/ERROR が出力された場合は `sudo docker compose logs app -n 200` で詳細を確認し、必要に応じて対応策を検討してください。
 - 週次点検では `TAIL_LINES=<行数>` を指定してログ範囲を増やし、過去の警告を洗い出してください。
+
+### 3.6.2 `/srv/rpi-server/logs/` 週次サマリ
+
+- `sudo ./scripts/check_storage_logs.sh` を実行すると、ログディレクトリのサイズ・直近更新ファイル・ WARN/ERROR 抜粋をまとめて確認できます。
+- `LOG_ROOT`、`DAYS`、`TAIL_LINES`、`RECENT_LIMIT` などの環境変数で対象や期間を調整できます。例: `DAYS=14 TAIL_LINES=200 sudo ./scripts/check_storage_logs.sh`
+- WARN/ERROR が検出された場合は終了コード 2 で終了するため、cron ジョブから呼び出す際はステータス監視に組み込みます。
+- 処理結果の保存や自動化例は `docs/checklists/weekly-log-review.md` を参照し、`/etc/cron.d/` への登録状況を定期的に棚卸ししてください。
 (略)
 
 **手動検証（dry-run）**  
