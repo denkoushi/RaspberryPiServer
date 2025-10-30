@@ -5,6 +5,9 @@
 ## 1. 基本情報
 - ホスト: Raspberry Pi 5 (SSD ブート)
 - OS: Raspberry Pi OS 64bit
+- 推奨ホスト名: `raspi-server`
+  - 初期構築時に `sudo hostnamectl set-hostname raspi-server` を実行し、クライアントから `raspi-server.local` で参照できるようにする。
+  - Pi4 などクライアントでは `/etc/hosts` に IP を固定せず、Avahi (mDNS) に任せる。環境を移動した場合は `ping raspi-server.local` で疎通を確認し、解決できない場合はクライアントの Avahi 状態を確認する。
 - メインサービス: tool-ingest / tool-dist / tool-backup automation, tool-snapshot.timer
 - ログディレクトリ: `/srv/rpi-server/logs/`
 - スクリプト配置: `/usr/local/toolmaster/bin/`
