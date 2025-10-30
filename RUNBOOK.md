@@ -309,6 +309,13 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
 
 ### 3.6 mirror_compare タイマー運用
 
+### 3.6.1 app ログ点検（RaspberryPiServer）
+
+- `sudo ./scripts/check_app_logs.sh` を実行すると、`docker compose logs app` の WARN/ERROR を抽出できます。
+- 既知の文言（`attribute 'version' is obsolete`）は自動的に除外されます。その他の WARN/ERROR が出力された場合は `sudo docker compose logs app -n 200` で詳細を確認し、必要に応じて対応策を検討してください。
+- 週次点検では `TAIL_LINES=<行数>` を指定してログ範囲を増やし、過去の警告を洗い出してください。
+(略)
+
 **手動検証（dry-run）**  
 ```bash
 mirror_compare.py --dry-run
