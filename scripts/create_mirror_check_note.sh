@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
-DEFAULT_TEMPLATE="${REPO_ROOT}/docs/test-notes/template-mirror-daily-check.md"
+DEFAULT_TEMPLATE="${REPO_ROOT}/docs/templates/test-log-mirror-daily.md"
 TARGET_DIR="${REPO_ROOT}/docs/test-notes"
 
 usage() {

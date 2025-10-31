@@ -56,22 +56,12 @@
 - 合意事項を実装に反映させたタイミングで `CHANGELOG.md` などへ履歴を残す。
 
 ## 8. リンク集
-- ドキュメント運用ガイドライン: `documentation-guidelines.md`
-- 決定事項・要件管理: `docs/requirements.md`
-- アーキテクチャ概要: `docs/architecture.md`
-- USB メモリ運用手順: `docs/usb-operations.md`
-- ミラー検証設計: `docs/mirror-verification.md`
-- 実装ロードマップ: `docs/implementation-plan.md`
-- テストログ: `docs/test-notes/2025-10-25-usb-loopback.md`
-- テストログ（物理 USB）: `docs/test-notes/2025-10-25-physical-usb.md`
-- テストログ（PostgreSQL Compose）: `docs/test-notes/2025-10-25-postgres-compose.md`
-- テスト計画（mirrorctl/mirror_compare）: `docs/test-notes/2025-10-25-mirrorctl-integration-plan.md`
-- テストログ（Docker Compose app サービス）: `docs/test-notes/2025-10-26-app-compose.md`
-- テストログ（Socket.IO 検証）: `docs/test-notes/2025-10-26-socketio-verification.md`
-- DocumentViewer サーバー移行計画: `docs/documentviewer-migration.md`
-- 週次ログ点検チェックリスト: `docs/checklists/weekly-log-review.md`
-- Window A 右ペイン機能モジュール化プラン: `docs/right-pane-plan.md`
-- 運用手順: `RUNBOOK.md`
-- 障害対応テンプレート: `docs/incident-response.md`（必要に応じて新規作成）
+- インデックス: `docs/docs-index.md`（カテゴリ別のリンク一覧）
+- ガバナンス: `documentation-guidelines.md`, `docs/incident-response.md`（必要に応じて作成）
+- 要件・設計: `docs/requirements.md`, `docs/architecture.md`, `docs/api-plan.md`, `docs/mirrorctl-spec.md`
+- 運用: `RUNBOOK.md`, `docs/usb-operations.md`, `docs/mirror-verification.md`
+- 計画・進捗: `docs/implementation-plan.md`, `docs/documentviewer-migration.md`, `docs/archive/2025-10-26-client-cutover.md`（履歴）
+- テスト: `docs/test-notes/`（実績ログ）, `docs/templates/`（テンプレート集）
+- チェックリスト: `docs/checklists/daily-end-to-end.md`, `docs/checklists/weekly-log-review.md`
 
 この指針を定期的に見直し、プロジェクトの進捗に合わせて更新してください。

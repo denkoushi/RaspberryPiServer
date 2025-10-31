@@ -20,10 +20,10 @@
 
 ## 3. 日次チェックリスト
 
-以下の手順を 1 セットとして実施し、チェックリスト（`scripts/create_mirror_check_note.sh` を利用。`--date` や `--force` で日付調整可）に記録する。
+以下の手順を 1 セットとして実施し、チェックリスト（`scripts/create_mirror_check_note.sh` を利用。`--date` や `--force` で日付調整可）に記録する。テンプレートは `docs/templates/test-log-mirror-daily.md`、サマリーは `docs/templates/test-log-mirror-summary.md` を使用する。
 
 0. **事前チェック（切替準備）**  
-   - Window A、Pi Zero が最新ブランチで設定済みか `docs/status/2025-10-26-client-cutover.md` を参照。  
+   - Window A、Pi Zero が最新ブランチで設定済みか `docs/archive/2025-10-26-client-cutover.md`（参考）を参照。  
    - 必要であれば Pi Zero で `sudo ./scripts/install_client_config.sh --api-url http://raspi-server.local:8501/api/v1/scans ...` を再実行し、`sudo systemctl restart handheld@<user>.service` を行う。  
    - Window A では `/etc/toolmgmt/window-a-client.env` を確認し、`toolmgmt.service` が `LIVE` で起動しているかを確認する。
 

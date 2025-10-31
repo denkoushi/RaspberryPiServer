@@ -62,7 +62,7 @@ OnSiteLogistics のミラー運用を切り替える際に、RaspberryPiServer �
 - `mirror_compare.py`: 日次健全性チェック用スクリプト（Python）。DB 接続可否・ログ書き込みが正常かを確認し、結果を JSON ログに記録する。依存パッケージ: `python3-psycopg2`。
 
 ## 5. テスト・運用メモ
-- 日次チェック: `docs/test-notes/2025-10-25-mirrorctl-integration-plan.md` と `docs/test-notes/mirror-check-template.md` を参照し、14 日連続で全項目 OK を目指す。
+- 日次チェック: `docs/test-notes/2025-10-25-mirrorctl-integration-plan.md` と `docs/templates/test-log-mirror-summary.md` を参照し、14 日連続で全項目 OK を目指す。
 - Pi Zero 側設定テンプレートは `docs/implementation-plan.md` にまとめる。
 - 自動テスト: 将来的にループバック環境で `mirrorctl enable` → `status` → `disable` を実行するスモークテストを検討。
 

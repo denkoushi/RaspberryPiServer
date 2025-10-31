@@ -23,7 +23,7 @@
 | 7 | USB フロー | `tool-dist-sync.sh` 等で DIST USB を作成し、端末で取り込み | 端末側で最新データが反映される | ○/×・メモ |
 | 8 | 記録 | 上記を日次チェックシートへ記入、異常時はログを添付 | チェックシートが更新される | 実施者・時刻 |
 
-テンプレートは `docs/test-notes/mirror-check-template.md` を利用し、日付ごとに行を追記する。
+テンプレートは `docs/templates/test-log-mirror-summary.md` を利用し、日付ごとに行を追記する。
 
 ## 異常時の対応
 - いずれかの項目が × になった場合は即座に `sudo mirrorctl disable` を実行し、Pi Zero の送信を停止する。

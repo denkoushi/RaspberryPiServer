@@ -28,7 +28,7 @@
 | フェーズ | 作業内容 | ブランチ例 | 備考 |
 | --- | --- | --- | --- |
 | Prep | 現行 USB スクリプト・サービス設定の棚卸し | `feature/server-migration-prep` | 移行後にどこまで残すかを整理 |
-| Prep-2 | DocumentViewer・工具管理 UI 等のクライアント機能を棚卸し、必要データと依存関係を整理 | `feature/windowa-inventory` | RaspberryPiServer へ移す機能と残す機能を明確化（`docs/right-pane-plan.md` に整理済み） |
+| Prep-2 | DocumentViewer・工具管理 UI 等のクライアント機能を棚卸し、必要データと依存関係を整理 | `feature/windowa-inventory` | RaspberryPiServer へ移す機能と残す機能を明確化（Window A リポジトリの `docs/right-pane-plan.md` に整理済み） |
 | Impl-1 | DocumentViewer の API/Socket.IO 提供機能を RaspberryPiServer 側へ移植 | `feature/windowa-viewer-migration` | 新サーバーでの API 応答と UI 連携を検証 |
 | Impl-2 | 工具管理、標準工数、日程、構内物流などのサーバー機能を段階的に移行 | `feature/windowa-tool-migration` | それぞれの API / データ移行手順を整理し、Pi Zero や DocumentViewer との連携を確認 |
 | Cutover | Window A からサーバー機能を外し、クライアント専用に再構成 | `feature/server-migration` | RaspberryPiServer への移行完了後に実施し、ロールバック手順を保持 |
@@ -36,7 +36,7 @@
 
 #### 2.2.1 クライアント UI リファクタ計画（2025-10-28 更新）
 
-> 2025-10-30 追記: Window A クライアント群の棚卸しとモジュール化ロードマップを `docs/right-pane-plan.md` に集約した。以後の詳細設計・進捗メモは同ドキュメントへ追記し、本ロードマップではフェーズ単位のマイルストーンを管理する。
+> 2025-10-30 追記: Window A クライアント群の棚卸しとモジュール化ロードマップを Window A リポジトリの `docs/right-pane-plan.md` に集約した。以後の詳細設計・進捗メモは同ドキュメントへ追記し、本ロードマップではフェーズ単位のマイルストーンを管理する。
 
 **現状課題（抜粋）**
 - `templates/index.html` に DocumentViewer／所在一覧／工程設定 UI すべてが集約され、1,600 行超のテンプレートにプレーン JS が直書きされている。責務分離ができずレビュー性が低い。
@@ -55,7 +55,7 @@
 - T1: 右ペインテンプレートの分割と Jinja マクロ化（DocumentViewer パネル／所在一覧パネル／工程設定ウィジェット）。
 - T2: `static/js/` モジュール化＋ビルドレス構成整備、Socket.IO ラッパの単体テスト追加。
 - T3: Flask アプリ分割（`blueprints/operations.py`、`blueprints/maintenance.py` 等）とサービス層導入。pytest でモックするためのインタフェース定義。
-- T4: postMessage プロトコル仕様書を `docs/right-pane-plan.md` に追記し、Window A ↔ DocumentViewer 間のイベントフロー図を作成。
+- T4: postMessage プロトコル仕様書を Window A リポジトリの `docs/right-pane-plan.md` に追記し、Window A ↔ DocumentViewer 間のイベントフロー図を作成。
 - T5: リファクタ後の結合テスト（curl + Socket.IO listener + ブラウザ操作）とログ確認手順を `docs/test-notes/` に追加。
 
 **リスクと緩和策**
@@ -81,7 +81,7 @@
 | Docs | ハンディリーダ設定手順更新 | `feature/update-docs` | ミラー設定・復旧手順の明記 |
 
 > Pi Zero 側の設定手順は `OnSiteLogistics/README.md` および `scripts/install_client_config.sh` に整備済み。`sudo ./scripts/install_client_config.sh --api-url http://raspi-server.local:8501/api/v1/scans ...` を実行し、`handheld@.service` を再起動するだけで RaspberryPiServer へ切り替えられる。
-> 作業進捗の一覧は `docs/status/2025-10-26-client-cutover.md` を参照。
+> 作業進捗の一覧は `docs/archive/2025-10-26-client-cutover.md`（履歴）を参照。
 
 ## 3. 共通検証項目
 

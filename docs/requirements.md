@@ -1,71 +1,60 @@
 # RaspberryPiServer 要件・決定事項
 
-この文書は RaspberryPiServer リポジトリで進めるサーバー構築に関する要件・決定事項・検討中の課題を集約する。更新時は `documentation-guidelines.md` を参照し、一次情報を重複記載しない。
+最終更新: 2025-10-31  
+一次情報は本ファイルで一元管理し、詳細な手順や履歴はリンク先ドキュメントを参照する。
 
-## 最終ゴール
+## 1. ゴール
+- Window A（tool-management-system02）は DocumentViewer／工具管理 UI などのクライアント機能に専念し、サーバー処理は RaspberryPiServer（Pi5）へ集約する。
+- RaspberryPiServer は REST / Socket.IO / PostgreSQL / USB 配布・バックアップを統合し、Pi Zero 2 W（ハンディ）からのスキャンを唯一の受信点とする。
+- Pi Zero 2 W は `mirrorctl`／`mirror_compare` による 14 日連続健全性チェックを完了した状態で本番切替を行う。
+- RUNBOOK・systemd・USB 運用を整備し、旧 Window A サーバーを安全に退役できる状態にする。
 
-- Window A は DocumentViewer・工具管理 UI などのクライアント機能のみを担い、サーバー機能は RaspberryPiServer（ラズパイ 5）へ全面移行する。
-- RaspberryPiServer は API／PostgreSQL／Socket.IO／USB 配布・バックアップを一元的に提供し、Pi Zero 2 W（ハンディリーダ）からの送信を唯一の受信点とする。
-- Pi Zero 2 W はハンディリーダ専用端末として運用し、`mirrorctl`／`mirror_compare` の 14 日連続チェックをクリアした状態で本番切替を完了する。
-- 上記役割分担を支える RUNBOOK・手順書・ systemd / USB 運用を整備し、旧 Window A サーバー環境を退役できる状態にする。
-- Pi Zero 側のクライアント設定は `scripts/install_client_config.sh` で自動生成できるよう整備済み（OnSiteLogistics リポジトリを参照）。
+## 2. 構成と責務
 
-## 移行タスク（旧 Window A サーバー縮退計画）
-
-- [x] Window A に残るクライアント機能の棚卸し（DocumentViewer、工具管理 UI、標準工数、日程、構内物流など）—`docs/right-pane-plan.md` に整理済み
-- [ ] `docs/implementation-plan.md` に移行順序と依存関係を追記し、RaspberryPiServer へ移すサービスの一覧を整理
-- [x] RaspberryPiServer へ DocumentViewer 用 REST API / Socket.IO を移植し、Pi Zero・DocumentViewer 間で連携確認（2025-10-26 ハンドテスト完了、`docs/test-notes/2025-10-26-socketio-verification.md` 参照）
-- [ ] Window A の DocumentViewer をクライアント専用構成へ更改し、`VIEWER_API_BASE` 等で RaspberryPiServer を参照
-- [ ] USB INGEST / DIST / BACKUP 運用を RaspberryPiServer 中心へ再設計し、TM-* ラベルのメディア準備と手順書更新
-- [ ] `mirrorctl` / `mirror_compare` の 14 日連続チェックを完了し、Decision Log に切替判断を記録
-- [ ] 旧 Window A サーバー機能の停止手順とロールバック手順を RUNBOOK へ追記し、退役の判断を実施
-
-> 今後、旧システムの改修に着手する際は、必ず事前に必要タスクを洗い出して本ファイルや関連 `.md` に記録し、進捗が可視化された状態で1つずつ消化すること。
-
-## 決定事項（Decision Log）
-
-| 日付 | 区分 | 内容 |
+| コンポーネント | 主な責務 | 参照ドキュメント |
 | --- | --- | --- |
-| 2025-02-?? | アーキテクチャ | **Docker Compose + PostgreSQL コンテナを継続**し、永続データは SSD（例: `/srv/rpi-server/postgres`）を bind mount して保管する。Window A の運用手順を継承し、Docker の restart/healthcheck の仕組みをそのまま活かす。 |
-| 2025-02-?? | 構成 | **OnSiteLogistics 受信 API と工具管理アプリをサーバーへ集約**し、DocumentViewer は従来どおり別 Pi 上で稼働させる。DocumentViewer の右ペインは新サーバーの Socket.IO へ接続先を切り替える。 |
-| 2025-02-?? | データ運用 | **USB メモリ同期を並存**させ、オフラインバックアップ兼サテライト端末へのシード媒体として維持する。USB 取り込み後は SSD 上の共有ストレージへ即時反映し、サーバー経由で各クライアントが参照する運用とする。 |
-| 2025-02-?? | データ同期 | **USB メモリはサーバーのみ書き込み可とし、クライアント側は Read-Only で利用**する。サーバーに USB メモリを挿入したときだけ新旧比較（`meta.json` / タイムスタンプ）を行い、新しい側（USB メモリ or サーバー側ストレージ）で古い側を上書きする。その後サーバーが公式データとして USB を更新し、端末側は USB からの読み込み（常に USB → 端末）とサーバー API による同期のみに限定する。 |
-| 2025-02-?? | USB 配布設計 | **USB メモリの役割を「サーバーへの持込み（INGEST）」「端末への配布（DIST）」で分離**する。INGEST 用は外部で編集したマスターデータや PDF をサーバーへ導入するために使用し、サーバーが新旧比較と書き込みを行う。DIST 用はサーバーが公式データをエクスポートして配布し、各端末では USB → 端末への上書きのみを許容する。ラベルおよびスクリプト上で役割を明示し、誤挿入時は処理を中断する保護を入れる。 |
-| 2025-02-?? | USB 識別 | **USB メモリはファイルシステムラベルとシグネチャファイルで二重判定**する。各役割に専用ラベル（例: `TM-INGEST`）と `/.toolmaster/role` を配置し、スクリプトはラベル一致かつシグネチャ内容が想定通りのときのみ処理を実行する。不一致時はログへ警告を残し、処理を中断する。 |
-| 2025-02-?? | インフラ | **SSD のマウントは `/etc/fstab` に UUID 指定で固定**し、起動時に `/srv/rpi-server`（仮称）へ自動マウントする。Docker bind mount のベースパスを揃えて運用し、再起動時の自動復旧を優先する。 |
-| 2025-02-?? | 移行計画 | **OnSiteLogistics からの送信は RaspberryPiServer を唯一の受信先とし、ミラー期間は新サーバーのみで運用**する。Pi Zero・DocumentViewer・USB メモリ経路の動作を手動検証で確認し、問題発生時は `mirrorctl disable` でミラーを停止してロールバックする体制を整える。 |
-| 2025-02-?? | ミラー検証 | **Pi Zero（OnSiteLogistics）、DocumentViewer、USB フローを対象にした手動検証チェックリスト**を運用し、ハンディリーダ入力→新サーバー表示→USB 配布まで一連の確認を 14 日間継続して記録する。差分や不整合が発生した場合は再検証を行い、記録をリセットする。 |
-| 2025-02-?? | 運用 | **Docker Compose 起動は systemd ユニット（例: `raspi-server.service`）で管理**し、起動時に `docker compose up` を実行する。ログ収集・依存関係制御を systemd 側で統一し、再起動時の安定性を確保する。 |
-| 2025-02-?? | クライアント切替 | **DocumentViewer 右ペインの Socket.IO 接続は 2 週間の並行検証後に新サーバーへ切替**し、遅延（500 ms 未満）とエラーレート（0.1% 以下）を満たすことを条件とする。設定変更のみで旧サーバーへ戻せるロールバック手順を準備する。 |
-| 2025-02-?? | 監視 | **systemd + ローカルログ監視を採用**し、`Restart=on-failure` と `OnFailure` で復旧スクリプトを実行。Docker healthcheck の結果は `/var/log/raspi-server/health.log` へ記録し、`journalctl` にも出力を残す。日次点検でログを確認する運用とする。 |
-| 2025-02-?? | systemd 設計 | **`raspi-server.service` に docker 依存と起動順序を集約**し、`Requires=docker.service`・`After=network-online.target docker.service` を指定する。`ExecStart=/usr/bin/docker compose -f /srv/rpi-server/docker-compose.yml up --remove-orphans`、`ExecStop=/usr/bin/docker compose -f ... down` を用い、`Restart=on-failure` と `StartLimitIntervalSec` で暴走を防ぐ。 |
-| 2025-02-?? | ログ保管 | **運用ログ・バックアップログは SSD 上（例: `/srv/rpi-server/logs/`）に保存**し、USB メモリはログ書き出しには使用しない。必要な場合にのみサーバー経由で外部媒体へコピーする。 |
-| 2025-02-?? | バックアップ | **SSD 上で日次スナップショット（7 世代程度）を保持し、バックアップ用 USB メモリを挿入したタイミングで最新スナップショットを自動コピー**する。バックアップ用は専用ラベル（例: `TM-BACKUP`）とし、`udev` 連携でコピー処理を起動、完了ログを `/srv/rpi-server/logs/backup.log` に記録する。USB メモリを抜き忘れても次回挿入時に最新状態へ更新されるよう設計する。USB メモリには `tar + zstd` で圧縮したアーカイブを週次 4 世代保持し、想定容量（PostgreSQL ダンプ + マスターデータ + OnSiteLogistics 連携テーブル ≒ 8 GB/世代）を踏まえて **64 GB 以上のメディア**を採用する。 |
+| RaspberryPiServer (Pi5) | API / Socket.IO / DB / USB 運用のハブ | `RUNBOOK.md`, `docs/implementation-plan.md`, `docs/mirror-verification.md` |
+| Window A (Pi4) | クライアント表示（DocumentViewer iframe、所在一覧、構内物流 UI 等） | Window A リポジトリ `docs/right-pane-plan.md`, `docs/docs-index.md` |
+| Pi Zero 2 W | ハンディ送信専用端末、`mirrorctl` 管理対象 | OnSiteLogistics `docs/handheld-reader.md`, RaspberryPiServer `docs/mirrorctl-spec.md` |
 
-> 日付は決定確定時に YYYY-MM-DD 形式で更新すること。
+## 3. ステータス一覧
 
-## 今後検討する項目
+| 機能領域 | 現状ステータス | 次アクション | 参照 |
+| --- | --- | --- | --- |
+| DocumentViewer 移行 | ⚙ 稼働中（Pi5 で `/viewer`・Socket.IO を提供） | Window A 側の環境ファイルを Pi5 参照に切替え、テストログ更新 | `docs/documentviewer-migration.md`, `DocumentViewer/docs/test-notes/2025-10-26-viewer-check.md` |
+| 工具管理 UI クライアント化 | ⏳ 進行中（UI/REST プロキシ集約を設計） | Window A 側で API 参照先を Pi5 に統一し、不要なサーバー処理を停止 | Window A `docs/right-pane-plan.md`, `docs/implementation-plan.md` |
+| USB INGEST / DIST / BACKUP 集約 | ⏳ 設計中（スクリプト雛形あり） | `docs/usb-operations.md` を RUNBOOK へ反映し、ラベル運用と udev イベントを実装 | `docs/usb-operations.md`, `RUNBOOK.md` |
+| ミラー 14 日連続チェック | ▶ 準備中（`mirrorctl` CLI/Timer 実装済み） | Pi Zero 実機で `mirrorctl enable` → 日次検証を開始し、テンプレートへ記録 | `docs/mirror-verification.md`, `docs/templates/test-log-mirror-daily.md` |
+| 旧 Window A サーバー退役 | ⏸ 未着手 | サービス停止手順・ロールバック手順を RUNBOOK へ追記し、切替判定を Decision Log に記録 | `RUNBOOK.md`, `docs/archive/2025-10-26-client-cutover.md` |
 
-- USB INGEST/DIST 運用手順とスクリプト改修（ラベル識別、容量超過時の分割手順、誤挿入検知）—詳細は `docs/usb-operations.md`
-- バックアップ用 USB メモリの容量設計とスナップショット整理（保持世代、圧縮方式）—詳細は `docs/usb-operations.md`
-- OnSiteLogistics ミラー送信モードおよび `mirrorctl` CLI の実装—詳細は `docs/mirror-verification.md`
-- 実装ロードマップに基づく各リポジトリのブランチ戦略と結合テスト計画—`docs/implementation-plan.md`
+ステータス表記: ✅ 完了 / ⚙ 稼働中 / ⏳ 進行中 / ▶ 準備中 / ⏸ 未着手
 
-## 現在の進捗メモ（2025-10-26 時点）
-- Docker Compose に Flask ベースの受信 API サービスを追加し、`/api/v1/scans` で `part_locations` へ upsert できる最小構成を実装。健康監視用 `GET /healthz` も提供。
-- アプリケーションは PostgreSQL・API トークンを環境変数で切り替え可能。テーブル初期化は起動時に自動で実施。
-- DocumentViewer 用 REST / Socket.IO は RaspberryPiServer で稼働中。次フェーズでは工具管理 UI の移設、Window A クライアントの接続先切替、14 日連続試運転に向けた自動テスト整備を進める。
-- `/etc/default/raspi-server` のサンプル（`config/raspi-server.env.sample`）に DocumentViewer 用 `VIEWER_LOG_PATH` を追加。Window A クライアント側は DocumentViewer リポジトリの `config/docviewer.env.sample` を基に `/etc/default/docviewer` を作成し、サーバーとクライアントの設定が同期するよう整備する。
-- USB INGEST 完了時に `/internal/plan-cache/refresh` を自動実行し、生産計画・標準工数 API が即時に新データを返すようにした。
-- DocumentViewer 側の検証手順は `DocumentViewer/docs/test-notes/2025-10-26-docviewer-env.md` を参照し、RaspberryPiServer の RUNBOOK・Mirror 検証と合わせて更新する。
-- `/srv/rpi-server/logs/` 週次点検用に `scripts/check_storage_logs.sh` を追加し、`docs/checklists/weekly-log-review.md` で手順化。RUNBOOK へも参照を掲載済み。
+## 4. 決定事項（Decision Log）
 
-### 次期対応（監視・共通認証）
-
-| 優先度 | テーマ | 次アクション |
+| 日付 (YYYY-MM-DD) | 区分 | 内容 |
 | --- | --- | --- |
-| 高 | systemd / watchdog 整備 | `raspi-server.service` / `toolmgmt.service` に `Restart=on-failure`・`WatchdogSec`・`OnFailure` を設定し、失敗時に通知スクリプトを実行。RUNBOOK のトラブルシュート章へ確認手順を追記。 |
-| 高 | API トークン運用統一 | `scripts/manage_api_token.py` を共通ライブラリ化し、RaspberryPiServer / Window A / Pi Zero のトークン発行・ローテーション履歴を `/srv/rpi-server/logs/api_token.log` に記録。`docs/security-overview.md` と RUNBOOK を更新。 |
-| 中 | ログローテーション | `/srv/rpi-server/logs/*.log` と Window A ログを `logrotate.d/toolmaster` に登録し、保持期間・圧縮方針を定義。実装後に確認コマンドを RUNBOOK へ追加。 |
-| 中 | 運用監視レポート | Pi5 上に `toolmaster-status`（仮）スクリプトを配置し、`systemctl` / `journalctl` / `curl` 結果を集約した日次レポートを Slack/メール配信。`docs/status/` に週次レポートテンプレートを準備。 |
-| 低 | TLS / DNS 整備 | 工場内 Wi-Fi 移行に合わせて `raspi-server.local` の mDNS から固定 DNS/TLS へ移行する計画を `docs/architecture.md` に追記。 |
+| 2025-02-xx | アーキテクチャ | Docker Compose + PostgreSQL コンテナ構成を継続し、永続データは `/srv/rpi-server/postgres` を bind mount して保管する。 |
+| 2025-02-xx | 構成 | OnSiteLogistics 受信 API と工具管理アプリを Pi5 へ集約し、DocumentViewer はクライアント（Window A）で表示のみ行う。 |
+| 2025-02-xx | データ運用 | USB メモリ同期を継続。サーバー側で INGEST / DIST / BACKUP の役割を切り分け、USB → サーバー更新後にクライアントへ配布する。 |
+| 2025-02-xx | USB 識別 | USB メモリはラベル + シグネチャファイル（例: `/.toolmaster/role`）で役割判定し、想定外の媒体は処理を中断する。 |
+| 2025-02-xx | systemd | `raspi-server.service` は `docker.service` に依存し、`Restart=on-failure` / `OnFailure=` で復旧スクリプトを呼び出す。 |
+| 2025-02-xx | ログ | 運用ログは `/srv/rpi-server/logs/` に保存し、USB には書き出さない。日次で `docs/checklists/weekly-log-review.md` を用いて点検する。 |
+| 2025-02-xx | バックアップ | SSD 上で日次スナップショット（7 世代）を保持し、`TM-BACKUP` USB 挿入時に最新スナップショットを `tar + zstd` で転送する。 |
+
+> 日付は確定時に更新すること。新たな決定事項は表へ追記し、関連ドキュメントへリンクする。
+
+## 5. 未解決課題
+- USB スクリプトに必要な依存パッケージ (`rsync`, `jq`, `tar`, `zstd`) の導入手順とロールバックフローを RUNBOOK へ統合。
+- API トークン管理を共通化し、発行・ローテーション履歴をログへ記録する仕組みを整備（`docs/security-overview.md` 更新を含む）。
+- `logrotate` 設定と監視スクリプト（`toolmaster-status` 仮称）を整備し、失敗時の通知経路を決定。
+- Pi Zero 実機での `mirrorctl` 自動テストを準備し、14 日連続チェック開始後の証跡を `docs/templates/` を用いて管理。
+- TLS / DNS 方針（mDNS から固定 DNS/TLS への移行計画）を `docs/architecture.md` に反映。
+
+## 6. 参照ドキュメント
+- `docs/docs-index.md` — 全ドキュメントの索引
+- `docs/implementation-plan.md` — リポジトリ別の詳細ロードマップ
+- `docs/documentviewer-migration.md` — DocumentViewer 移行状況
+- `docs/mirror-verification.md` — 14 日検証手順
+- `docs/mirrorctl-spec.md` — `mirrorctl` / `mirror_compare` の仕様
+- `docs/usb-operations.md` — USB 運用フロー
+- `docs/archive/2025-10-26-client-cutover.md` — 過去作業ログ（参照専用）
