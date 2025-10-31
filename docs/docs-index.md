@@ -6,19 +6,19 @@ RaspberryPiServer リポジトリのドキュメント配置と役割を一覧�
 | --- | --- | --- | --- | --- |
 | ガバナンス | `docs/AGENTS.md` | 作業指針、ウィンドウ構成、コミュニケーションルール | 運用方針・ブランチ戦略が変わったとき | ✅ 2025-10-31 |
 | ガバナンス | `docs/documentation-guidelines.md` | 文書分類・更新ルール | 文書種別追加、棚卸し手順の見直し | ✅ 2025-10-31 |
-| 概要 | `README.md` | プロジェクト概要、主要ドキュメントへの入口 | サービス構成やセットアップ手順が変わったとき | ⏳ 未確認 |
-| 概要 | `CHANGELOG.md` | 適用済み変更履歴 | リリース・本番反映時 | ⏳ 未確認 |
-| 運用 | `RUNBOOK.md` | サービス再起動、デプロイ、トラブルシュート | 新しい運用手順が確定したとき | ⏳ 未確認 |
+| 概要 | `README.md` | プロジェクト概要、主要ドキュメントへの入口 | サービス構成やセットアップ手順が変わったとき | ✅ 2025-10-31 |
+| 概要 | `CHANGELOG.md` | 適用済み変更履歴 | リリース・本番反映時 | ✅ 2025-10-31 |
+| 運用 | `RUNBOOK.md` | サービス再起動、デプロイ、トラブルシュート | 新しい運用手順が確定したとき | ✅ 2025-10-31 |
 | 要件/計画 | `docs/requirements.md` | 要件・決定事項・未完タスク | 合意事項や優先度が変わったとき | ✅ 2025-10-31 |
 | 要件/計画 | `docs/implementation-plan.md` | リポジトリ別ロードマップ | マイルストーン更新時 | ✅ 2025-10-31 |
-| 要件/計画 | `docs/documentviewer-migration.md` | DocumentViewer 移行計画 | 移行ステータス更新時 | ⏳ 未確認 |
-| 要件/計画 | `docs/api-plan.md` | REST / Socket.IO API の仕様整理 | エンドポイント変更時 | ⏳ 未確認 |
+| 要件/計画 | `docs/documentviewer-migration.md` | DocumentViewer 移行計画 | 移行ステータス更新時 | ✅ 2025-10-31 |
+| 要件/計画 | `docs/api-plan.md` | REST / Socket.IO API の仕様整理 | エンドポイント変更時 | ✅ 2025-10-31 |
 | ミラー運用 | `docs/mirror-verification.md` | 14 日検証手順 | 手順変更時 | ✅ 2025-10-31 |
 | ミラー運用 | `docs/mirrorctl-spec.md` | `mirrorctl`/`mirror_compare` の仕様 | CLI 仕様更新時 | ✅ 2025-10-31 |
-| 運用補助 | `docs/usb-operations.md` | USB メディア運用手順 | 運用変更時 | ⏳ 未確認 |
-| 運用補助 | `docs/architecture.md` | システム構成、通信経路 | 構成変更時 | ⏳ 未確認 |
+| 運用補助 | `docs/usb-operations.md` | USB メディア運用手順 | 運用変更時 | ✅ 2025-10-31 |
+| 運用補助 | `docs/architecture.md` | システム構成、通信経路 | 構成変更時 | ✅ 2025-10-31 |
 | テンプレート | `docs/templates/` | テストログ・チェックシート雛形 | テンプレート追加・改訂時 | ✅ 2025-10-31 |
-| テスト記録 | `docs/test-notes/YYYY-MM-DD-*.md` | 実機検証ログ・証跡 | 各検証実施後 | ⏳ 未確認 |
+| テスト記録 | `docs/test-notes/YYYY-MM-DD-*.md` | 実機検証ログ・証跡 | 各検証実施後 | ✅ 2025-10-31 |
 | アーカイブ | `docs/archive/2025-10-26-client-cutover.md` | Window A 切替当時の作業メモ | 参照専用（更新しない） | ✅ 2025-10-31 |
 
 ---
