@@ -41,6 +41,21 @@ RaspberryPiServer (Pi5) と Window A (Pi4) の間で、USB → REST → Socket.I
    - ブラウザで `http://localhost:8501/viewer` を開き、`testpart.pdf` が表示されること。
    - 必要に応じて `tail -n 20 /var/log/document-viewer/import.log` を確認。
 
+5. **構内物流タブの更新確認（Pi4 → Pi5）**
+   ```bash
+   curl -s -X POST http://raspi-server.local:8501/api/logistics/jobs \
+     -H "Authorization: Bearer ${API_TOKEN:-raspi-token-20251027}" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "job_id": "job-e2e-$(date +%s)",
+           "part_code": "testpart",
+           "from_location": "RACK-A1",
+           "to_location": "RACK-B1"
+         }'
+   ```
+   - Pi4 の右ペイン「構内物流」タブで件数バッジと最終更新時刻が増分され、`搬送更新: ...` のメッセージが表示されることを確認。
+   - Pi5 では `/srv/rpi-server/logs/logistics_audit.log` に `status_update` もしくは `create` の監査ログが追加される。Socket.IO 監視中であれば `logistics_job_updated` が受信される。
+
 ## ログ確認コマンド一覧
 - Pi5 アプリケーションログ: `cd ~/RaspberryPiServer && sudo docker compose logs app -n 50`
 - Pi4 DocumentViewer インポートログ: `sudo tail -n 20 /var/log/document-viewer/import.log`

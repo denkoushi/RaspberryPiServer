@@ -1,11 +1,15 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from logging.handlers import RotatingFileHandler
 import psycopg
 from flask import Flask, jsonify, request
-from werkzeug.exceptions import BadRequest, Unauthorized
+from contextlib import contextmanager
+
+from filelock import FileLock, Timeout
+from werkzeug.exceptions import BadRequest, Conflict, ServiceUnavailable, Unauthorized
 from flask_socketio import SocketIO
 
 try:
@@ -28,6 +32,29 @@ socketio = SocketIO(cors_allowed_origins=SOCKETIO_CORS_ORIGINS, async_mode="geve
 
 PLAN_DATA_DIR = Path(os.getenv("PLAN_DATA_DIR", "/srv/rpi-server/data/plan")).resolve()
 STATION_CONFIG_PATH = Path(os.getenv("STATION_CONFIG_PATH", "/srv/rpi-server/config/station.json")).resolve()
+LOGISTICS_DATA_PATH = Path(
+    os.getenv("LOGISTICS_DATA_PATH", "/srv/rpi-server/data/logistics/jobs.json")
+).resolve()
+_default_lock_name = LOGISTICS_DATA_PATH.name + ".lock"
+LOGISTICS_LOCK_PATH = Path(
+    os.getenv("LOGISTICS_LOCK_PATH", str(LOGISTICS_DATA_PATH.parent / _default_lock_name))
+).resolve()
+LOGISTICS_LOCK_TIMEOUT = float(os.getenv("LOGISTICS_LOCK_TIMEOUT", "5"))
+LOGISTICS_RETENTION_DAYS = int(os.getenv("LOGISTICS_RETENTION_DAYS", "30"))
+LOGISTICS_MAX_JOBS = int(os.getenv("LOGISTICS_MAX_JOBS", "500"))
+LOGISTICS_AUDIT_PATH = Path(
+    os.getenv("LOGISTICS_AUDIT_PATH", "/srv/rpi-server/logs/logistics_audit.log")
+).resolve()
+_LOGISTICS_STATUSES_ENV = os.getenv(
+    "LOGISTICS_ALLOWED_STATUSES", "pending,in_transit,completed,cancelled"
+)
+LOGISTICS_ALLOWED_STATUSES = {
+    item.strip().lower() for item in _LOGISTICS_STATUSES_ENV.split(",") if item.strip()
+}
+if not LOGISTICS_ALLOWED_STATUSES:
+    LOGISTICS_ALLOWED_STATUSES = {"pending", "in_transit", "completed", "cancelled"}
+LOGISTICS_TERMINAL_STATUSES = {"completed", "cancelled"}
+_LOGISTICS_AUDIT_LOGGER = None
 
 PLAN_DATASETS = {
     "production_plan": {
@@ -45,10 +72,193 @@ PLAN_DATASETS = {
 _plan_cache = PlanCache(PLAN_DATA_DIR, PLAN_DATASETS)
 
 
+@contextmanager
+def _lock_logistics_store():
+    LOGISTICS_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(str(LOGISTICS_LOCK_PATH), timeout=LOGISTICS_LOCK_TIMEOUT)
+    try:
+        with lock:
+            yield
+    except Timeout as exc:
+        logging.getLogger(__name__).warning("Failed to acquire logistics lock: %s", exc)
+        raise ServiceUnavailable("logistics_store_locked") from exc
+
+
+def _ensure_logistics_store_locked() -> None:
+    LOGISTICS_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not LOGISTICS_DATA_PATH.exists():
+        LOGISTICS_DATA_PATH.write_text("[]", encoding="utf-8")
+
+
+def _ensure_logistics_store() -> None:
+    with _lock_logistics_store():
+        _ensure_logistics_store_locked()
+
+
+def _read_logistics_jobs() -> list[dict[str, object]]:
+    with _lock_logistics_store():
+        _ensure_logistics_store_locked()
+        try:
+            data = json.loads(LOGISTICS_DATA_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            logging.getLogger(__name__).exception("Failed to parse logistics jobs JSON")
+        return []
+
+
+def _write_logistics_jobs(jobs: list[dict[str, object]]) -> None:
+    trimmed = _prune_logistics_jobs(jobs)
+    payload = json.dumps(trimmed, ensure_ascii=False, indent=2)
+    tmp_path = LOGISTICS_DATA_PATH.with_suffix(".tmp")
+    with _lock_logistics_store():
+        _ensure_logistics_store_locked()
+        tmp_path.write_text(payload, encoding="utf-8")
+        tmp_path.replace(LOGISTICS_DATA_PATH)
+
+
+def _generate_logistics_job_id() -> str:
+    now = datetime.now(timezone.utc)
+    return "job-" + now.strftime("%Y%m%d%H%M%S%f")
+
+
+def _parse_logistics_timestamp(value) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc)
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value, tz=timezone.utc)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    return None
+
+
+def _prune_logistics_jobs(jobs: list[dict[str, object]]) -> list[dict[str, object]]:
+    if not isinstance(jobs, list):
+        return []
+
+    retention_cutoff = None
+    if LOGISTICS_RETENTION_DAYS > 0:
+        retention_cutoff = datetime.now(timezone.utc) - timedelta(days=LOGISTICS_RETENTION_DAYS)
+
+    filtered: list[dict[str, object]] = []
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        timestamp = (
+            _parse_logistics_timestamp(job.get("updated_at"))
+            or _parse_logistics_timestamp(job.get("requested_at"))
+        )
+        if retention_cutoff and timestamp and timestamp < retention_cutoff:
+            continue
+        filtered.append(job)
+
+    filtered.sort(
+        key=lambda item: (
+            _parse_logistics_timestamp(item.get("updated_at"))
+            or _parse_logistics_timestamp(item.get("requested_at"))
+            or datetime.min.replace(tzinfo=timezone.utc)
+        ),
+        reverse=True,
+    )
+
+    if LOGISTICS_MAX_JOBS > 0:
+        return filtered[: LOGISTICS_MAX_JOBS]
+    return filtered
+
+
+def _normalize_logistics_status(value: str) -> str:
+    return value.strip().lower()
+
+
+def _validate_logistics_status(status: str) -> str:
+    if not status:
+        raise BadRequest("missing_status")
+    normalized = _normalize_logistics_status(status)
+    if normalized not in LOGISTICS_ALLOWED_STATUSES:
+        raise BadRequest("invalid_status")
+    return normalized
+
+
+def _allowed_status_transitions(current_status: str) -> set[str]:
+    base_map = {
+        "pending": {"pending", "in_transit", "completed", "cancelled"},
+        "in_transit": {"in_transit", "completed", "cancelled"},
+        "completed": {"completed"},
+        "cancelled": {"cancelled"},
+    }
+    allowed = base_map.get(current_status, {current_status})
+    normalized = {_normalize_logistics_status(item) for item in allowed}
+    filtered = normalized & LOGISTICS_ALLOWED_STATUSES
+    return filtered or {current_status}
+
+
+def _get_logistics_audit_logger() -> logging.Logger:
+    global _LOGISTICS_AUDIT_LOGGER
+    if _LOGISTICS_AUDIT_LOGGER is not None:
+        return _LOGISTICS_AUDIT_LOGGER
+
+    logger = logging.getLogger("logistics.audit")
+    if logger.handlers:
+        for handler in list(logger.handlers):
+            logger.removeHandler(handler)
+            try:
+                handler.close()
+            except Exception:  # pragma: no cover - best effort
+                pass
+
+    LOGISTICS_AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(
+        LOGISTICS_AUDIT_PATH,
+        maxBytes=1_000_000,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    _LOGISTICS_AUDIT_LOGGER = logger
+    return logger
+
+
+def _log_logistics_event(event: str, job: dict, previous: dict | None = None, note: str | None = None) -> None:
+    record = {
+        "event": event,
+        "job_id": job.get("job_id"),
+        "status": job.get("status"),
+        "part_code": job.get("part_code"),
+        "from_location": job.get("from_location"),
+        "to_location": job.get("to_location"),
+        "updated_at": job.get("updated_at"),
+    }
+    if previous:
+        record["previous_status"] = previous.get("status")
+        record["previous_to_location"] = previous.get("to_location")
+    if note:
+        record["note"] = note
+
+    logger = _get_logistics_audit_logger()
+    logger.info(json.dumps(record, ensure_ascii=False))
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     _configure_logging()
     _init_db()
+    _ensure_logistics_store()
     app.register_blueprint(document_viewer_bp)
     socketio.init_app(app, cors_allowed_origins=SOCKETIO_CORS_ORIGINS)
 
@@ -149,6 +359,174 @@ def create_app() -> Flask:
         entries = _fetch_part_locations(limit_value)
         return jsonify({"entries": entries})
 
+    @app.get("/api/logistics/jobs")
+    def get_logistics_jobs():
+        _enforce_token()
+        limit_arg = request.args.get("limit", default=None, type=str)
+        try:
+            limit_value = int(limit_arg) if limit_arg is not None else 100
+        except ValueError:
+            raise BadRequest("invalid_limit")
+        limit_value = max(1, min(limit_value, 500))
+        jobs = _read_logistics_jobs()
+        jobs_sorted = sorted(
+            jobs,
+            key=lambda item: item.get("updated_at") or item.get("requested_at") or "",
+            reverse=True,
+        )
+        return jsonify({"items": jobs_sorted[:limit_value]})
+
+    @app.post("/api/logistics/jobs")
+    def create_logistics_job():
+        _enforce_token()
+        payload = request.get_json(silent=True) or {}
+        job_id = _get_str(payload, "job_id", default=None) or _generate_logistics_job_id()
+        part_code = _get_str(payload, "part_code")
+        from_location = _get_str(payload, "from_location")
+        to_location = _get_str(payload, "to_location")
+        status_raw = _get_str(payload, "status", default="pending") or "pending"
+        requested_at = _get_str(payload, "requested_at", default=None)
+
+        if not part_code:
+            raise BadRequest("missing_part_code")
+        if not from_location:
+            raise BadRequest("missing_from_location")
+        if not to_location:
+            raise BadRequest("missing_to_location")
+        status = _validate_logistics_status(status_raw)
+
+        jobs = _read_logistics_jobs()
+        now_iso = _to_utc_iso(datetime.now(timezone.utc))
+        existing = None
+        for index, job in enumerate(jobs):
+            if job.get("job_id") == job_id:
+                existing = (index, job)
+                break
+
+        base_requested = requested_at or (existing[1].get("requested_at") if existing else None) or now_iso
+        previous = existing[1] if existing else None
+        previous_status = previous.get("status") if previous else None
+        if previous_status is not None:
+            allowed = _allowed_status_transitions(previous_status)
+            if status not in allowed:
+                note = f"invalid_transition {previous_status}->{status}"
+                _log_logistics_event(
+                    "create_conflict",
+                    {
+                        "job_id": job_id,
+                        "status": status,
+                        "part_code": part_code,
+                        "from_location": from_location,
+                        "to_location": to_location,
+                        "updated_at": now_iso,
+                    },
+                    previous=previous,
+                    note=note,
+                )
+                return (
+                    jsonify(
+                        {
+                            "error": "invalid_status_transition",
+                            "current": previous_status,
+                            "requested": status,
+                        }
+                    ),
+                    409,
+                )
+
+        job_record = {
+            "job_id": job_id,
+            "part_code": part_code,
+            "from_location": from_location,
+            "to_location": to_location,
+            "status": status,
+            "requested_at": base_requested,
+            "updated_at": now_iso,
+        }
+
+        if existing:
+            jobs[existing[0]] = job_record
+        else:
+            jobs.append(job_record)
+
+        _write_logistics_jobs(jobs)
+        socketio.emit("logistics_job_updated", job_record, broadcast=True)
+        _log_logistics_event("create" if not existing else "update", job_record, previous=previous)
+        return jsonify(job_record), 201
+
+    @app.post("/api/logistics/jobs/<job_id>/status")
+    def update_logistics_job(job_id: str):
+        _enforce_token()
+        payload = request.get_json(silent=True) or {}
+        status_raw = _get_str(payload, "status")
+        from_location = _get_str(payload, "from_location", default=None)
+        to_location = _get_str(payload, "to_location", default=None)
+
+        if not status_raw:
+            raise BadRequest("missing_status")
+        status = _validate_logistics_status(status_raw)
+
+        jobs = _read_logistics_jobs()
+        updated = None
+        now_iso = _to_utc_iso(datetime.now(timezone.utc))
+        previous = None
+        for index, job in enumerate(jobs):
+            if job.get("job_id") == job_id:
+                previous = dict(job)
+                current_status = _normalize_logistics_status(job.get("status", ""))
+                allowed = _allowed_status_transitions(current_status)
+                if status not in allowed:
+                    _log_logistics_event(
+                        "status_transition_conflict",
+                        {
+                            "job_id": job_id,
+                            "status": status,
+                            "part_code": job.get("part_code"),
+                            "from_location": from_location or job.get("from_location"),
+                            "to_location": to_location or job.get("to_location"),
+                            "updated_at": now_iso,
+                        },
+                        previous=job,
+                    )
+                    return (
+                        jsonify(
+                            {
+                                "error": "invalid_status_transition",
+                                "current": current_status,
+                                "requested": status,
+                            }
+                        ),
+                        409,
+                    )
+                if from_location:
+                    job["from_location"] = from_location
+                if to_location:
+                    job["to_location"] = to_location
+                job["status"] = status
+                job["updated_at"] = now_iso
+                jobs[index] = job
+                updated = job
+                break
+
+        if not updated:
+            _log_logistics_event(
+                "update_not_found",
+                {
+                    "job_id": job_id,
+                    "status": status,
+                    "from_location": from_location,
+                    "to_location": to_location,
+                    "updated_at": now_iso,
+                },
+                note="job_not_found",
+            )
+            return jsonify({"error": "not_found"}), 404
+
+        _write_logistics_jobs(jobs)
+        socketio.emit("logistics_job_updated", updated, broadcast=True)
+        _log_logistics_event("status_update", updated, previous=previous)
+        return jsonify(updated)
+
     @app.get("/api/v1/station-config")
     def get_station_config():
         _enforce_token()
@@ -187,6 +565,7 @@ def _configure_logging() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    _get_logistics_audit_logger()
 
 
 def _init_db() -> None:

@@ -68,3 +68,40 @@
 - station 設定ファイル `STATION_CONFIG_PATH` は `/srv/rpi-server/config/station.json`。
 - `/internal/plan-cache/refresh` エンドポイントで `PlanCache` をリフレッシュし、`tool-ingest-sync.sh` から自動呼び出し済み。
 - 今後: OpenAPI ドキュメント整備と Window A 側の API 切り替え実装を進める。
+
+## 5. Logistics Jobs (構内物流)
+- **GET /api/logistics/jobs?limit=100**
+  ```json
+  {
+    "items": [
+      {
+        "job_id": "job-20251031123400123456",
+        "part_code": "PART-01",
+        "from_location": "STAGING-AREA",
+        "to_location": "RACK-A1",
+        "status": "pending",
+        "requested_at": "2025-10-31T12:34:00Z",
+        "updated_at": "2025-10-31T12:34:00Z"
+      }
+    ],
+    "limit": 100
+  }
+  ```
+  - `limit` は 1〜500 の範囲で指定可能。既定は 100。
+  - 長期未更新／件数過多のレコードは自動的に削除・絞り込み（`LOGISTICS_RETENTION_DAYS`、`LOGISTICS_MAX_JOBS`）。
+- **POST /api/logistics/jobs**（Upsert）
+  ```json
+  {
+    "job_id": "job-20251031123400123456",   // 省略するとサーバー側で採番
+    "part_code": "PART-01",
+    "from_location": "STAGING-AREA",
+    "to_location": "RACK-A1",
+    "status": "pending",                    // pending / in_transit / completed / cancelled
+    "requested_at": "2025-10-31T12:34:00Z"  // 省略するとサーバーが現在時刻を設定
+  }
+  ```
+  - 既存 `job_id` への POST は更新扱い。ステータス遷移は `pending → in_transit → completed/cancelled` を想定。終了後の戻しは `409 Conflict`。
+  - 監査ログは `LOGISTICS_AUDIT_PATH`（デフォルト `/srv/rpi-server/logs/logistics_audit.log`）に JSON 形式で出力される。
+- **POST /api/logistics/jobs/<job_id>/status**
+  - Request Body: `{"status": "in_transit", "to_location": "RACK-B1"}` のようにステータス変更と併せて搬送先を更新可能。
+  - 終了済みジョブ（`completed` / `cancelled`）の再開要求は `409 Conflict`、存在しない `job_id` は `404 Not Found`。

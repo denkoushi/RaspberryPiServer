@@ -137,6 +137,12 @@ def server_module(monkeypatch, tmp_path):
     plan_dir.mkdir()
     monkeypatch.setenv("PLAN_DATA_DIR", str(plan_dir))
     monkeypatch.setenv("STATION_CONFIG_PATH", str(tmp_path / "station.json"))
+    logistics_path = tmp_path / "logistics" / "jobs.json"
+    logistics_path.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("LOGISTICS_DATA_PATH", str(logistics_path))
+    audit_path = tmp_path / "logs" / "logistics_audit.log"
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("LOGISTICS_AUDIT_PATH", str(audit_path))
     sys.modules.pop("app.document_viewer", None)
     socketio_module = ModuleType("flask_socketio")
     socketio_module.SocketIO = SocketIOStub

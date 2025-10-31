@@ -29,6 +29,21 @@
 2. `/mnt/backup/YYYY-MM-DD_full.tar.zst` が生成されていることを確認。
 3. 取り外す前に `sudo umount /mnt/backup`。
 
+### 2.4 構内物流タスクの確認
+- JSON ストア: `/srv/rpi-server/data/logistics/jobs.json`（環境変数 `LOGISTICS_DATA_PATH` で変更可）。`jq` で中身を確認する場合は `sudo jq '.' /srv/rpi-server/data/logistics/jobs.json`。
+- 監査ログ: `/srv/rpi-server/logs/logistics_audit.log`（`LOGISTICS_AUDIT_PATH` で変更可）。RaspberryPiServer が受け付けた搬送タスクの新規/更新が JSON で追記される。
+  ```bash
+  sudo tail -n 20 /srv/rpi-server/logs/logistics_audit.log
+  # 例: {"event": "status_update", "job_id": "job-202510311234", ...}
+  ```
+- API 動作確認:
+  ```bash
+  curl -s \
+    -H "Authorization: Bearer ${API_TOKEN:-raspi-token-20251026}" \
+    "http://raspi-server.local:8501/api/logistics/jobs?limit=5" | jq
+  ```
+  ステータス遷移は `pending -> in_transit -> completed/cancelled` を想定。完了後のステータス戻し（例: `completed -> in_transit`）は 409 を返し、監査ログにも `status_transition_conflict` として記録される。
+
 ## 3. デプロイ/更新手順
 
 ### 3.0 サーバースタックの自動セットアップ

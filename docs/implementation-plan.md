@@ -19,6 +19,10 @@
 | Impl-3 | ミラー比較スクリプト、`mirrorctl` CLI | `feature/mirror-tools` | 日次比較のシミュレーション、ログ確認 |
 | QA | 結合テスト（DocumentViewer・OnSiteLogistics と接続） | `qa/server-cutover` | 手動チェックリスト、RUNBOOK 作成（DocumentViewer ログ確認含む） |
 
+> **2025-10-31 更新:** 構内物流タスクの JSON ストア `/srv/rpi-server/data/logistics/jobs.json` を対象にした REST エンドポイント `/api/logistics/jobs` を実装し、`filelock` による排他・テンポラリファイル置換で書き込みを保護。pytest (`tests/test_logistics_api.py`) を追加して REST/Socket/バリデーションを回帰テスト可能にした。
+>
+> **2025-10-31 追加更新:** `/api/logistics/jobs` のステータス遷移（`pending → in_transit → completed/cancelled`）と JSON 監査ログ（`LOGISTICS_AUDIT_PATH`、デフォルト `/srv/rpi-server/logs/logistics_audit.log`）を実装。無効ステータスや終了後の再開要求は 400/409 を返し、`tests/test_logistics_api.py` で遷移検証と監査ログの出力を確認できるようにした。
+
 ### 2.2 tool-management-system02（Window A）
 
 | フェーズ | 作業内容 | ブランチ例 | 備考 |
