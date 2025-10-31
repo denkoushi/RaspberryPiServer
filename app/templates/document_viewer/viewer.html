@@ -170,7 +170,7 @@
     </section>
 </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOI7/aSUMn2ymDOJcapfS6PHqxRTMh1RR0Q6+" crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
   <script>
     const CONFIG = {{ config | tojson }};
     const partInput = document.getElementById("partInput");
