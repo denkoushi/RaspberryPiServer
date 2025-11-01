@@ -11,8 +11,9 @@
 
 - Flask アプリ（`app/server.py`）へ DocumentViewer 用エンドポイントを統合し、以下を提供する。
   - `/viewer` : UI（必要であれば Window A 側でホストしても良いが、RaspberryPiServer でも動作可能にする）
-  - `/api/documents/<part_number>` : JSON レスポンス（`found` / `filename` / `url`）
-  - `/documents/<filename>` : PDF 配信。`/srv/rpi-server/documents` をデフォルト格納場所とする。
+- `/api/documents/<part_number>` : JSON レスポンス（`found` / `filename` / `url`）
+- `/documents/<filename>` : PDF 配信。`/srv/rpi-server/documents` をデフォルト格納場所とする。
+- Docker コンテナからホスト上の `/srv/rpi-server/documents` と `/srv/rpi-server/logs` を参照できるよう、`docker-compose.yml` の `app` サービスに bind mount を設定する。
 - API は環境変数 `VIEWER_DOCS_DIR`、`VIEWER_DEFAULT_HOST` などでパスやベース URL を切り替えられるようにする。
 - CORS 設定を有効化し、Window A（DocumentViewer クライアント）が `http://raspi-server.local:8501` へ fetch してもブロックされないようにする。
 - 認証が必要な場合に備え、API トークン（`VIEWER_API_TOKEN`）を Bearer で受け付ける仕組みを実装（DocumentViewer フロントから送信）。
