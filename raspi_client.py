@@ -75,8 +75,28 @@ class RaspiServerClient:
         except json.JSONDecodeError as exc:
             raise RaspiServerClientError(f"invalid JSON response from {path}") from exc
 
-    def post_json(self, path: str, payload: dict | None = None) -> dict:
-        response = self._request("POST", path, json=payload)
+    def post_json(
+        self,
+        path: str,
+        payload: dict | None = None,
+        *,
+        allow_statuses: Iterable[int] | None = None,
+    ) -> dict:
+        response = self._request("POST", path, json=payload, allow_statuses=allow_statuses)
+        try:
+            return response.json()
+        except json.JSONDecodeError as exc:
+            raise RaspiServerClientError(f"invalid JSON response from {path}") from exc
+
+    def delete_json(
+        self,
+        path: str,
+        *,
+        allow_statuses: Iterable[int] | None = None,
+    ) -> dict:
+        response = self._request("DELETE", path, allow_statuses=allow_statuses)
+        if not response.content:
+            return {}
         try:
             return response.json()
         except json.JSONDecodeError as exc:

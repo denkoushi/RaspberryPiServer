@@ -9,7 +9,7 @@ from flask import Flask, jsonify, request
 from contextlib import contextmanager
 
 from filelock import FileLock, Timeout
-from werkzeug.exceptions import BadRequest, Conflict, ServiceUnavailable, Unauthorized
+from werkzeug.exceptions import BadRequest, Conflict, NotFound, ServiceUnavailable, Unauthorized
 from flask_socketio import SocketIO
 
 try:
@@ -527,6 +527,127 @@ def create_app() -> Flask:
         _log_logistics_event("status_update", updated, previous=previous)
         return jsonify(updated)
 
+    @app.get("/api/loans")
+    def list_loans():
+        _enforce_token()
+        open_limit_arg = request.args.get("open_limit", default=None, type=str)
+        history_limit_arg = request.args.get("history_limit", default=None, type=str)
+        try:
+            open_limit = max(1, min(int(open_limit_arg) if open_limit_arg is not None else 100, 1000))
+        except ValueError as exc:
+            raise BadRequest("invalid_open_limit") from exc
+        try:
+            history_limit = max(1, min(int(history_limit_arg) if history_limit_arg is not None else 50, 1000))
+        except ValueError as exc:
+            raise BadRequest("invalid_history_limit") from exc
+
+        data = {
+            "open_loans": _fetch_open_loans(open_limit),
+            "history": _fetch_recent_history(history_limit),
+        }
+        return jsonify(data)
+
+    @app.post("/api/loans/<int:loan_id>/manual_return")
+    def manual_return(loan_id: int):
+        _enforce_token()
+        try:
+            result = _complete_loan_manually(loan_id)
+        except NotFound:
+            return jsonify({"error": "not_found"}), 404
+
+        socketio.emit(
+            "transaction_complete",
+            {
+                "user_uid": result["borrower_uid"],
+                "user_name": result["borrower_name"],
+                "tool_uid": result["tool_uid"],
+                "tool_name": result["tool_name"],
+                "message": result["message"],
+                "action": "return",
+            },
+            broadcast=True,
+        )
+        return jsonify({"status": "success", "message": result["message"]})
+
+    @app.delete("/api/loans/<int:loan_id>")
+    def delete_loan(loan_id: int):
+        _enforce_token()
+        try:
+            result = _delete_open_loan(loan_id)
+        except NotFound:
+            return jsonify({"error": "not_found"}), 404
+        message = f"🗑️ 貸出記録を削除しました: {result['tool_name']} ({result['tool_uid']})"
+        return jsonify({"status": "success", "message": message, "tool_uid": result["tool_uid"]})
+
+    @app.post("/api/register_user")
+    def api_register_user():
+        _enforce_token()
+        payload = request.get_json(silent=True) or {}
+        uid = _get_str(payload, "uid")
+        name = _get_str(payload, "name")
+        if not uid or not name:
+            raise BadRequest("missing_uid_or_name")
+        try:
+            _register_user(uid, name)
+        except Exception as exc:  # pylint: disable=broad-except
+            app.logger.exception("Failed to register user: %s", exc)
+            return jsonify({"error": str(exc)}), 500
+        return jsonify({"status": "success", "message": "ユーザーを登録/更新しました"})
+
+    @app.post("/api/register_tool")
+    def api_register_tool():
+        _enforce_token()
+        payload = request.get_json(silent=True) or {}
+        uid = _get_str(payload, "uid")
+        name = _get_str(payload, "name")
+        if not uid or not name:
+            raise BadRequest("missing_uid_or_name")
+        try:
+            _register_tool(uid, name)
+        except Exception as exc:  # pylint: disable=broad-except
+            app.logger.exception("Failed to register tool: %s", exc)
+            return jsonify({"error": str(exc)}), 500
+        return jsonify({"status": "success", "message": "工具を登録/更新しました"})
+
+    @app.get("/api/tool_names")
+    def api_tool_names():
+        _enforce_token()
+        return jsonify({"names": _list_tool_names()})
+
+    @app.post("/api/add_tool_name")
+    def api_add_tool_name():
+        _enforce_token()
+        payload = request.get_json(silent=True) or {}
+        name = _get_str(payload, "name")
+        if not name:
+            raise BadRequest("missing_name")
+        try:
+            _add_tool_name(name)
+        except Exception as exc:  # pylint: disable=broad-except
+            app.logger.exception("Failed to add tool name: %s", exc)
+            return jsonify({"error": str(exc)}), 500
+        return jsonify({"status": "success", "message": "追加しました"})
+
+    @app.post("/api/delete_tool_name")
+    def api_delete_tool_name():
+        _enforce_token()
+        payload = request.get_json(silent=True) or {}
+        name = _get_str(payload, "name")
+        if not name:
+            raise BadRequest("missing_name")
+        try:
+            _remove_tool_name(name)
+        except Conflict:
+            return jsonify({"error": "tool_name_in_use"}), 409
+        except NotFound:
+            return jsonify({"error": "not_found"}), 404
+        return jsonify({"status": "success", "message": "削除しました"})
+
+    @app.get("/api/tag-info/<uid>")
+    def api_tag_info(uid: str):
+        _enforce_token()
+        return jsonify(_lookup_tag_info(uid))
+
     @app.get("/api/v1/station-config")
     def get_station_config():
         _enforce_token()
@@ -682,6 +803,257 @@ def _fetch_part_locations(limit: int) -> list[dict[str, object]]:
             }
         )
     return results
+
+
+def _normalize_timestamp(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    return None
+
+
+def _fetch_open_loans(limit: int) -> list[dict[str, object]]:
+    query = """
+        SELECT l.id,
+               l.tool_uid,
+               COALESCE(t.name, l.tool_uid) AS tool_name,
+               l.borrower_uid,
+               COALESCE(u.full_name, l.borrower_uid) AS borrower_name,
+               l.loaned_at
+          FROM loans l
+     LEFT JOIN tools t ON t.uid = l.tool_uid
+     LEFT JOIN users u ON u.uid = l.borrower_uid
+         WHERE l.returned_at IS NULL
+      ORDER BY l.loaned_at DESC
+         LIMIT %s
+    """
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (limit,))
+            rows = cur.fetchall()
+
+    items: list[dict[str, object]] = []
+    for row in rows:
+        loaned_at = _normalize_timestamp(row[5])
+        items.append(
+            {
+                "id": row[0],
+                "tool_uid": row[1],
+                "tool": row[2],
+                "borrower_uid": row[3],
+                "borrower": row[4],
+                "loaned_at": _to_utc_iso(loaned_at) if loaned_at else None,
+            }
+        )
+    return items
+
+
+def _fetch_recent_history(limit: int) -> list[dict[str, object]]:
+    query = """
+        SELECT CASE WHEN l.returned_at IS NULL THEN '貸出' ELSE '返却' END AS action,
+               COALESCE(t.name, l.tool_uid) AS tool_name,
+               COALESCE(u.full_name, l.borrower_uid) AS borrower_name,
+               l.loaned_at,
+               l.returned_at
+          FROM loans l
+     LEFT JOIN tools t ON t.uid = l.tool_uid
+     LEFT JOIN users u ON u.uid = l.borrower_uid
+      ORDER BY COALESCE(l.returned_at, l.loaned_at) DESC
+         LIMIT %s
+    """
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (limit,))
+            rows = cur.fetchall()
+
+    items: list[dict[str, object]] = []
+    for row in rows:
+        loaned_at = _normalize_timestamp(row[3])
+        returned_at = _normalize_timestamp(row[4])
+        items.append(
+            {
+                "action": row[0],
+                "tool": row[1],
+                "borrower": row[2],
+                "loaned_at": _to_utc_iso(loaned_at) if loaned_at else None,
+                "returned_at": _to_utc_iso(returned_at) if returned_at else None,
+            }
+        )
+    return items
+
+
+def _resolve_tool_name(cur, tool_uid: str) -> str:
+    cur.execute("SELECT COALESCE(name, %s) FROM tools WHERE uid=%s", (tool_uid, tool_uid))
+    row = cur.fetchone()
+    value = row[0] if row else None
+    if not value:
+        return tool_uid
+    return value
+
+
+def _resolve_user_name(cur, user_uid: str) -> str:
+    cur.execute("SELECT COALESCE(full_name, %s) FROM users WHERE uid=%s", (user_uid, user_uid))
+    row = cur.fetchone()
+    value = row[0] if row else None
+    if not value:
+        return user_uid
+    return value
+
+
+def _complete_loan_manually(loan_id: int) -> dict:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE loans
+                   SET returned_at = now(),
+                       return_user_uid = COALESCE(return_user_uid, borrower_uid)
+                 WHERE id=%s AND returned_at IS NULL
+             RETURNING tool_uid, borrower_uid
+                """,
+                (loan_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise NotFound("loan_not_found")
+            tool_uid, borrower_uid = row
+            tool_name = _resolve_tool_name(cur, tool_uid)
+            borrower_name = _resolve_user_name(cur, borrower_uid)
+        conn.commit()
+
+    message = f"✅ 手動返却：{tool_name} を {borrower_name} から回収しました"
+    return {
+        "tool_uid": tool_uid,
+        "tool_name": tool_name,
+        "borrower_uid": borrower_uid,
+        "borrower_name": borrower_name,
+        "message": message,
+    }
+
+
+def _delete_open_loan(loan_id: int) -> dict:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT l.tool_uid,
+                       COALESCE(t.name, l.tool_uid) AS tool_name
+                  FROM loans l
+             LEFT JOIN tools t ON t.uid = l.tool_uid
+                 WHERE l.id=%s AND l.returned_at IS NULL
+                """,
+                (loan_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise NotFound("loan_not_found")
+            tool_uid, tool_name = row
+            cur.execute("DELETE FROM loans WHERE id=%s AND returned_at IS NULL", (loan_id,))
+            if cur.rowcount == 0:
+                raise NotFound("loan_not_found")
+        conn.commit()
+    return {"tool_uid": tool_uid, "tool_name": tool_name or tool_uid}
+
+
+def _register_user(uid: str, name: str) -> None:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO users(uid, full_name)
+                VALUES (%s, %s)
+                ON CONFLICT(uid) DO UPDATE SET full_name=EXCLUDED.full_name
+                """,
+                (uid, name),
+            )
+        conn.commit()
+
+
+def _register_tool(uid: str, name: str) -> None:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO tools(uid, name)
+                VALUES (%s, %s)
+                ON CONFLICT(uid) DO UPDATE SET name=EXCLUDED.name
+                """,
+                (uid, name),
+            )
+        conn.commit()
+
+
+def _list_tool_names() -> list[str]:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name FROM tool_master ORDER BY name ASC")
+            rows = cur.fetchall()
+    return [row[0] for row in rows]
+
+
+def _add_tool_name(name: str) -> None:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO tool_master(name)
+                VALUES (%s)
+                ON CONFLICT(name) DO NOTHING
+                """,
+                (name,),
+            )
+        conn.commit()
+
+
+def _remove_tool_name(name: str) -> None:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM tools WHERE name=%s LIMIT 1", (name,))
+            if cur.fetchone():
+                raise Conflict("tool_name_in_use")
+            cur.execute("DELETE FROM tool_master WHERE name=%s", (name,))
+            if cur.rowcount == 0:
+                raise NotFound("tool_name_not_found")
+        conn.commit()
+
+
+def _lookup_tag_info(uid: str) -> dict:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT full_name FROM users WHERE uid=%s", (uid,))
+            row = cur.fetchone()
+            if row and row[0]:
+                name = row[0]
+                return {
+                    "uid": uid,
+                    "status": "success",
+                    "type": "user",
+                    "name": name,
+                    "message": f"👤 ユーザー: {name}",
+                }
+            cur.execute("SELECT name FROM tools WHERE uid=%s", (uid,))
+            row = cur.fetchone()
+            if row and row[0]:
+                name = row[0]
+                return {
+                    "uid": uid,
+                    "status": "success",
+                    "type": "tool",
+                    "name": name,
+                    "message": f"🛠️ 工具: {name}",
+                }
+    return {
+        "uid": uid,
+        "status": "success",
+        "type": "unregistered",
+        "name": "",
+        "message": "❓ 未登録のタグです",
+    }
+
+
 def _parse_timestamp(value) -> datetime:
     if isinstance(value, (int, float)):
         return datetime.fromtimestamp(value, tz=timezone.utc)
