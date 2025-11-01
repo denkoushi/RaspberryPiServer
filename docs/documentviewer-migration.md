@@ -48,6 +48,7 @@
    - DocumentViewer クライアント（Window A）を RaspberryPiServer の `/viewer` へ向けるか、Window A 側 Flask をクライアント専用に縮退させる。
    - `DOCUMENT_VIEWER_URL` を `http://raspi-server.local:8501/viewer` に更新。
    - `/etc/default/docviewer` は DocumentViewer リポジトリの `config/docviewer.env.sample` をベースに作成し、`VIEWER_API_BASE` / `VIEWER_SOCKET_BASE` / `VIEWER_LOCAL_DOCS_DIR` / `VIEWER_LOG_PATH` などを設定する。
+   - Window A サービスの systemd ドロップインは `tool-management-system02/config/systemd/toolmgmt.service.d/window-a.conf.sample` を使用し、`Environment=SOCKET_STATUS_WATCHDOG=1` / `Environment=TOOLMGMT_CLIENT_ROLE=window-a` を含める。`.env` 側 (`config/window-a-client.env.sample`) と値を一致させ、Pi5 の `API_TOKEN` / `VIEWER_API_TOKEN` と揃える。
    - API トークンを RaspberryPiServer 側に合わせて再発行し、環境変数 `VIEWER_API_TOKEN` を DocumentViewer フロント／tool-management-system02 双方で設定。
    - `/etc/default/window-a-client` の `DATABASE_URL` を RaspberryPiServer の PostgreSQL（例: `postgresql://app:app_password@192.168.10.230:15432/appdb`）へ更新し、`RASPI_SERVER_API_TOKEN` を `/etc/default/raspi-server` の `API_TOKEN` と同じ値に揃える。更新後は `sudo systemctl restart toolmgmt.service` で反映する（サービス未登録時は `scripts/install_window_a_env.sh --with-dropin` を再実行）。
    - DocumentViewer リポジトリ側で `VIEWER_SOCKET_*` 環境変数に対応し、`part_location_updated` 受信時に PDF を自動表示できるようにした（2025-10-26）。
@@ -58,7 +59,11 @@
 
 7. **検証手順**
    - 手動テスト: Pi Zero からの送信 → DocumentViewer で表示 → USB DIST で PDF が更新される流れを確認。
-   - 14 日チェック: DocumentViewer 連携が問題なく稼働することを日次記録へ追加。
+   - 14 日チェック: DocumentViewer 連携が問題なく稼働することを `docs/test-notes/2025-11-01-14day-check.md` や Window A 側の日次記録に追加し、`dv-barcode` → 所在一覧ハイライトの結果を `docs/test-notes/2025-11-02-viewer-highlight.md` に追記する。
+
+8. **運用上の注意**
+   - Pi5 停止中は Socket.IO が再接続中状態になるため、Window A 側ウォッチドッグ (`SOCKET_STATUS_WATCHDOG=1`) を既定値で有効化し、「再接続中…」表示を維持する。無効化した場合は OFFLINE 表示へ降格するため、障害調査時以外は変更しない。
+   - macOS 開発環境では `docker compose` で `./mnt/documents:/srv/rpi-server/documents` を bind mount し、本番と同じパスで `testpart.pdf` などを配置する。パスが不一致の場合、Pi4 から 404 (`HTTP/1.1 404 NOT FOUND`) が返るので、起動前に `ls ./mnt/documents` と Pi5 の `/srv/rpi-server/documents` を同期する。
 
 ## 4. 残タスク・検討事項
 

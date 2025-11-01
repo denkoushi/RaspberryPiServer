@@ -9,6 +9,7 @@
   - 初期構築時に `sudo hostnamectl set-hostname raspi-server` を実行する。
   - Avahi の重複回避によりホスト名が `raspi-server-2.local` や `raspi-server-3.local` になる場合があるため、実機では `hostnamectl` と `avahi-browse -rt _workstation._tcp` で公開中の名称を確認する。
   - クライアント（Window A / DocumentViewer / Pi Zero）は `/etc/toolmgmt/window-a-client.env` や `/etc/default/docviewer` の `RASPI_SERVER_BASE`・`UPSTREAM_SOCKET_BASE` を実際のホスト名に合わせる。疎通確認は `ping <ホスト名>` で行い、解決できない場合はクライアント側の Avahi 状態を確認する。
+  - Window A の systemd ドロップインは `tool-management-system02/config/systemd/toolmgmt.service.d/window-a.conf.sample` をベースに展開し、`SOCKET_STATUS_WATCHDOG=1` / `TOOLMGMT_CLIENT_ROLE=window-a` を設定する。`.env` テンプレート (`config/window-a-client.env.sample`) と値を揃え、Pi5 側の `API_TOKEN` / `VIEWER_API_TOKEN` と一致させる。
 - メインサービス: tool-ingest / tool-dist / tool-backup automation, tool-snapshot.timer
 - ログディレクトリ: `/srv/rpi-server/logs/`
 - スクリプト配置: `/usr/local/toolmaster/bin/`
@@ -260,6 +261,8 @@ sudo install -m 755 scripts/mirror_compare.py /usr/local/bin/mirror_compare.py
   ```
   期待される結果: JSON に `found: true` が含まれ、ログには `Document lookup success` が追記される。404 応答時もログへ `Document not found` が記録される。ログが生成されない場合は `VIEWER_LOG_PATH` 環境変数と Docker bind mount (`/srv/rpi-server/logs`) を確認。
   RaspberryPiServer 側の `/etc/default/raspi-server` で `VIEWER_LOG_PATH` を設定している場合は `config/raspi-server.env.sample` を参照し、DocumentViewer リポジトリ側テンプレートと整合をとる。
+  Window A のウォッチドッグを有効にしている場合 (`SOCKET_STATUS_WATCHDOG=1`)、Pi5 停止時でもステータスチップは「再接続中…」表示を維持する。調査目的で `0` に変更した際は `sudo systemctl restart toolmgmt.service` 後に必ず元へ戻す。
+  14 日稼働チェックでは `docs/test-notes/2025-11-01-14day-check.md` と Window A 側の日次ノートを併用し、`dv-barcode` → 所在一覧ハイライトの結果を `docs/test-notes/2025-11-02-viewer-highlight.md` に追記する。
 - API テスト（Bearer トークン無しの場合）  
   ```bash
   curl -s -X POST http://127.0.0.1:8501/api/v1/scans \
