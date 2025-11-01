@@ -27,7 +27,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     volumes:
-      - /srv/rpi-server/documents:/srv/rpi-server/documents:ro
+      - /srv/rpi-server/documents:/srv/rpi-server/documents
       - /srv/rpi-server/logs:/srv/rpi-server/logs
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://app:app_password@postgres:5432/appdb}
