@@ -13,6 +13,7 @@
   - `/viewer` : UI（必要であれば Window A 側でホストしても良いが、RaspberryPiServer でも動作可能にする）
 - `/api/documents/<part_number>` : JSON レスポンス（`found` / `filename` / `url`）
 - `/documents/<filename>` : PDF 配信。`/srv/rpi-server/documents` をデフォルト格納場所とする。
+- macOS など開発環境では `docker-compose.yml` で `./mnt/documents` を `/srv/rpi-server/documents` に bind mount し、本番と同じパス構成で検証する。
 - Docker コンテナからホスト上の `/srv/rpi-server/documents` と `/srv/rpi-server/logs` を参照できるよう、`docker-compose.yml` の `app` サービスに bind mount を設定する。
 - API は環境変数 `VIEWER_DOCS_DIR`、`VIEWER_DEFAULT_HOST` などでパスやベース URL を切り替えられるようにする。
 - CORS 設定を有効化し、Window A（DocumentViewer クライアント）が `http://raspi-server.local:8501` へ fetch してもブロックされないようにする。
