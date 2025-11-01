@@ -1,6 +1,6 @@
 # RaspberryPiServer 要件・決定事項
 
-最終更新: 2025-10-31  
+最終更新: 2025-11-02  
 一次情報は本ファイルで一元管理し、詳細な手順や履歴はリンク先ドキュメントを参照する。
 
 ## 1. ゴール
@@ -21,13 +21,21 @@
 
 | 機能領域 | 現状ステータス | 次アクション | 参照 |
 | --- | --- | --- | --- |
-| DocumentViewer 移行 | ⚙ 稼働中（Pi5 で `/viewer`・Socket.IO を提供） | Window A 側の環境ファイルを Pi5 参照に切替え、テストログ更新 | `docs/documentviewer-migration.md`, `DocumentViewer/docs/test-notes/2025-10-26-viewer-check.md` |
-| 工具管理 UI クライアント化 | ⏳ 進行中（UI/REST プロキシ集約を設計） | Window A 側で API 参照先を Pi5 に統一し、不要なサーバー処理を停止 | Window A `docs/right-pane-plan.md`, `docs/implementation-plan.md` |
-| USB INGEST / DIST / BACKUP 集約 | ⏳ 設計中（スクリプト雛形あり） | `docs/usb-operations.md` を RUNBOOK へ反映し、ラベル運用と udev イベントを実装 | `docs/usb-operations.md`, `RUNBOOK.md` |
-| ミラー 14 日連続チェック | ▶ 準備中（`mirrorctl` CLI/Timer 実装済み） | Pi Zero 実機で `mirrorctl enable` → 日次検証を開始し、テンプレートへ記録 | `docs/mirror-verification.md`, `docs/templates/test-log-mirror-daily.md` |
-| 旧 Window A サーバー退役 | ⏸ 未着手 | サービス停止手順・ロールバック手順を RUNBOOK へ追記し、切替判定を Decision Log に記録 | `RUNBOOK.md`, `docs/archive/2025-10-26-client-cutover.md` |
+| DocumentViewer 移行 | ⚙ 稼働中（Pi5 で `/viewer`・Socket.IO を提供） | 1. Window A の systemd drop-in / `.env` を Pi5 向けに確定（`SOCKET_STATUS_WATCHDOG`・トークン含む）<br>2. RUNBOOK と `docs/documentviewer-migration.md` へウォッチドッグ／PDF バインドマウント注意点を反映<br>3. Pi4・Pi5・DocumentViewer の 14 日連続可用性チェック手順を `docs/test-notes/` へ追加 | `docs/documentviewer-migration.md`, `DocumentViewer/docs/test-notes/2025-10-26-viewer-check.md` |
+| 工具管理 UI クライアント化 | ⏳ 進行中（UI/REST プロキシ集約を設計） | 1. Window A の API 参照先を Pi5 へ統一し、旧サーバー経由コードを削除<br>2. クライアント専用品の systemd 定義と RUNBOOK を整理<br>3. Socket.IO / REST テストログを `docs/test-notes/` へ追記 | Window A `docs/right-pane-plan.md`, `docs/implementation-plan.md` |
+| USB INGEST / DIST / BACKUP 集約 | ⏳ 設計中（スクリプト雛形あり） | 1. `docs/usb-operations.md` を RUNBOOK へ反映し、役割別 USB ラベル運用を確定<br>2. `udev` / systemd timer スクリプトを実装してテスト<br>3. Pi5↔Pi4 で DIST リハーサルを実施し証跡を `docs/test-notes/` へ残す | `docs/usb-operations.md`, `RUNBOOK.md` |
+| ミラー 14 日連続チェック | ▶ 準備中（`mirrorctl` CLI/Timer 実装済み） | 1. Pi Zero 実機へ `mirrorctl enable` を配備し、初期疎通を確認<br>2. `docs/templates/test-log-mirror-daily.md` を用いた記録サイクルを整備<br>3. 14 日分のログを収集後に判定会議へ提出 | `docs/mirror-verification.md`, `docs/templates/test-log-mirror-daily.md` |
+| 旧 Window A サーバー退役 | ⏸ 未着手 | 1. 退役対象サービスと依存を棚卸しし、RUNBOOK に停止手順を追記<br>2. ロールバック（Pi4 単独復帰）手順をテストノート化<br>3. 切替判定の意思決定記録を Decision Log へ追加 | `RUNBOOK.md`, `docs/archive/2025-10-26-client-cutover.md` |
 
 ステータス表記: ✅ 完了 / ⚙ 稼働中 / ⏳ 進行中 / ▶ 準備中 / ⏸ 未着手
+
+### 3.1 次の着手順序（2025-11-02 時点）
+
+1. DocumentViewer 移行タスク 1〜3 を完了し、Window A 環境とテストログを最新化する。  
+2. 工具管理 UI クライアント化タスクを実施し、Window A 側から旧サーバー依存を排除する。  
+3. USB INGEST / DIST / BACKUP 集約タスクを順に進め、Pi5 を中心とした配布フローを実稼働させる。  
+4. ミラー 14 日連続チェックを開始し、テンプレート通りにエビデンスを蓄積する。  
+5. 旧 Window A サーバー退役のための停止・ロールバック手順を固め、Decision Log で切替判定を行う。
 
 ## 4. 決定事項（Decision Log）
 
@@ -49,6 +57,7 @@
 - `logrotate` 設定と監視スクリプト（`toolmaster-status` 仮称）を整備し、失敗時の通知経路を決定。
 - Pi Zero 実機での `mirrorctl` 自動テストを準備し、14 日連続チェック開始後の証跡を `docs/templates/` を用いて管理。
 - TLS / DNS 方針（mDNS から固定 DNS/TLS への移行計画）を `docs/architecture.md` に反映。
+- macOS 開発環境で `/srv/rpi-server/documents` を bind mount する手順をドキュメント化し、本番 Pi5 とパスの不一致による 404 を防止。
 
 ## 6. 参照ドキュメント
 - `docs/docs-index.md` — 全ドキュメントの索引
