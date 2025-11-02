@@ -63,7 +63,7 @@ Pi Zero 2 W のハンディ端末は Wi-Fi 経由で Pi5 の `/api/v1/scans` に
 
 ## 5. 未解決課題
 - USB スクリプトに必要な依存パッケージ (`rsync`, `jq`, `tar`, `zstd`) の導入手順とロールバックフローを RUNBOOK へ統合。
-- API トークン管理を共通化し、発行・ローテーション履歴をログへ記録する仕組みを整備（`docs/security-overview.md` 更新を含む）。
+- ✅ API トークン管理を共通化し、発行・ローテーション履歴をログへ記録する仕組みを整備（2025-11-05 `RUNBOOK.md` 4 章・`docs/security-overview.md` に統合ポリシーと運用手順を追記）。
 - `logrotate` 設定と監視スクリプト（`toolmaster-status` 仮称）を整備し、失敗時の通知経路を決定。
 - Pi Zero 実機での `mirrorctl` 自動テストを準備し、14 日連続チェック開始後の証跡を `docs/templates/` を用いて管理。
 - TLS / DNS 方針（mDNS から固定 DNS/TLS への移行計画）を `docs/architecture.md` に反映。

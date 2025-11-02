@@ -368,7 +368,61 @@ sudo mirror_compare.py
 - `sudo systemctl status mirror-compare.service`
 - `journalctl -u mirror-compare.service --since "1 day ago"`
 
-## 4. ロールバック手順
+## 4. API トークン運用
+
+RaspberryPiServer（Pi5）、Window A（Pi4）、Pi Zero（ハンディ）は同じ Bearer トークンを共有し、Pi4 の `manage_api_token.py` を基準にローテーションします。
+
+### 4.1 トークン種別
+
+| 種別 | 用途 | 保存場所 | 備考 |
+| --- | --- | --- | --- |
+| 管理 API（Window A） | `/api/*` の保護（`X-API-Token`） | Pi4: `/etc/toolmgmt/api_token.json` | `scripts/manage_api_token.py` で発行／無効化。station_id を必ず設定する。 |
+| Pi5 REST / Socket | Window A・Pi Zero・Playwright からの Bearer | Pi5: `/etc/default/raspi-server` (`API_TOKEN`, `VIEWER_API_TOKEN`)<br>Pi4: `/etc/toolmgmt/window-a-client.env` (`RASPI_SERVER_API_TOKEN`)<br>Pi Zero: `/etc/onsitelogistics/config.json` (`api_token`) | すべて同じ値を使用する（例: `raspi-token-20251027`）。 |
+| DocumentViewer iframe | `/viewer` への Bearer | Pi5: `VIEWER_API_TOKEN`<br>Pi4: DocumentViewer を Pi5 から配信する場合は同上 | 通常は REST と同一値。別値にする場合は RUNBOOK に記録する。 |
+
+### 4.2 ローテーション手順
+
+1. **Pi4 で新しいトークンを発行**
+   ```bash
+   cd ~/tool-management-system02
+   python scripts/manage_api_token.py rotate --station-id WINDOW-A --reveal
+   ```
+   `--reveal` で表示された新しいトークンを控える（`/etc/toolmgmt/api_token.json` が更新される）。
+
+2. **Pi5 の設定を更新**
+   - `/etc/default/raspi-server` の `API_TOKEN` と `VIEWER_API_TOKEN` を新しい値へ置き換える。
+
+3. **Pi4 / Pi Zero / テスト環境を更新**
+   - `/etc/toolmgmt/window-a-client.env` の `RASPI_SERVER_API_TOKEN`
+   - `/etc/onsitelogistics/config.json` などハンディ側の `api_token`
+   - `.env.test` や Playwright 実行環境など、自動テストで利用する環境変数
+
+4. **サービス再起動**
+   ```bash
+   sudo systemctl restart raspi-server.service
+   sudo systemctl restart toolmgmt.service
+   sudo systemctl restart onsitelogistics.service   # ハンディのサービス名に合わせる
+   ```
+   - `journalctl -u <service> -n 20` で失敗が無いか確認。
+
+5. **動作確認**
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' \
+     -H "Authorization: Bearer <新トークン>" \
+     http://127.0.0.1:8501/healthz
+   ```
+   200 が返ること。Pi4 では管理画面に新トークンを入力し、`python scripts/manage_api_token.py show --reveal` で反映を確認する。ハンディは `/api/v1/scans` を送信し、Pi5 ログで 401 が出ていないことを確認。
+
+6. **記録と監査**
+   - `logs/api_actions.log`（Pi4）と `/var/log/raspi-server/app.log`（Pi5）に station_id 付きの操作ログが残る。ローテーション日と反映端末を運用ノートや `docs/test-notes/` に記録し、トークン値はパスワード管理ツールで保管する。
+
+### 4.3 フォールバック
+- トークンを紛失した場合は Pi5 の `/etc/default/raspi-server` に記載された値を基準に他端末へ再配布する。
+- すべて無効化したい場合は Pi4 で `python scripts/manage_api_token.py revoke --all` を実行し、上記手順で再発行する。
+
+詳細は `docs/security-overview.md` の「API トークン統合ポリシー」を参照。
+
+## 5. ロールバック手順
 1. `sudo systemctl disable tool-snapshot.timer`
 2. `sudo rm /etc/systemd/system/usb-*.service /etc/systemd/system/tool-snapshot.*`
 3. `sudo rm /etc/udev/rules.d/90-toolmaster.rules`
@@ -376,7 +430,7 @@ sudo mirror_compare.py
 5. `sudo udevadm control --reload`
 6. 必要に応じて `/usr/local/toolmaster` 配下を削除し、バックアップした旧バージョンを復元。
 
-## 5. 障害対応
+## 6. 障害対応
 | 症状 | 確認ポイント | 対応 |
 | --- | --- | --- |
 | USB 自動処理が動かない | `journalctl -u usb-ingest@*` などでエラー確認 | スクリプト配置とラベル/role を再確認。 `/usr/local/lib/toolmaster-usb.sh` の存在を確認 |
@@ -384,9 +438,9 @@ sudo mirror_compare.py
 | バックアップ USB にアーカイブが無い | `/mnt/backup` のマウント・残容量確認 | アーカイブの手動作成: `sudo tool-backup-export.sh --device /dev/sdX1` |
 | ミラー検証で × が出る | `mirrorctl status`、日次チェックシート、`journalctl -u mirror-compare.service` | `sudo mirrorctl disable` で一時停止。Pi Zero 設定やログ（`mirror_requests.log` / `mirror_status.log` / `mirror_diff.log`）を確認し、原因解消後に再度 `mirrorctl enable` して日次チェックをやり直す |
 
-## 6. 連絡フロー
+## 7. 連絡フロー
 - 1 次対応: システム担当（RaspberryPiServer 運用者）
 - 2 次対応: 開発チーム（連絡先 TBD）
 
-## 7. 変更履歴
+## 8. 変更履歴
 - 2025-10-25: 初版（USB 自動化・スナップショット手順を記載）
