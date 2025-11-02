@@ -18,7 +18,7 @@ RaspberryPiServer リポジトリのドキュメント配置と役割を一覧�
 | 運用補助 | `docs/usb-operations.md` | USB メディア運用手順 | 運用変更時 | ✅ 2025-10-31 |
 | 運用補助 | `docs/architecture.md` | システム構成、通信経路 | 構成変更時 | ✅ 2025-10-31 |
 | テンプレート | `docs/templates/` | テストログ・チェックシート雛形 | テンプレート追加・改訂時 | ✅ 2025-10-31 |
-| テスト記録 | `docs/test-notes/YYYY-MM-DD-*.md` | 実機検証ログ・証跡 | 各検証実施後 | ✅ 2025-11-02（2025-11-02 viewer highlight 反映） |
+| テスト記録 | `docs/test-notes/YYYY-MM-DD-*.md` | 実機検証ログ・証跡 | 各検証実施後 | ✅ 2025-11-02（2025-11-02 viewer highlight / Window A Playwright ライブテスト反映） |
 | アーカイブ | `docs/archive/2025-10-26-client-cutover.md` | Window A 切替当時の作業メモ | 参照専用（更新しない） | ✅ 2025-10-31 |
 
 ---
