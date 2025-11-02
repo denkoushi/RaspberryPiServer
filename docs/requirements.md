@@ -14,15 +14,25 @@
 | コンポーネント | 主な責務 | 参照ドキュメント |
 | --- | --- | --- |
 | RaspberryPiServer (Pi5) | API / Socket.IO / DB / USB 運用のハブ | `RUNBOOK.md`, `docs/implementation-plan.md`, `docs/mirror-verification.md` |
-| Window A (Pi4) | クライアント表示（DocumentViewer iframe、所在一覧、構内物流 UI 等） | Window A リポジトリ `docs/right-pane-plan.md`, `docs/docs-index.md` |
+| Window A (Pi4) | クライアント表示（DocumentViewer iframe、所在一覧、構内物流 UI 等） / 周辺機器（NFC・USB ハンディ）の集約点 | Window A リポジトリ `docs/right-pane-plan.md`, `docs/docs-index.md` |
 | Pi Zero 2 W | ハンディ送信専用端末、`mirrorctl` 管理対象 | OnSiteLogistics `docs/handheld-reader.md`, RaspberryPiServer `docs/mirrorctl-spec.md` |
+
+### 2.1 ラズパイ構成の全体像
+
+Pi5（RaspberryPiServer）は、旧 Window A に存在したサーバー処理をすべて引き受ける中枢として機能する。`/api/v1/scans` や `/api/logistics/jobs` をはじめとする REST API、Socket.IO イベント、PostgreSQL への書き込み、DocumentViewer UI 配信、USB 配布・バックアップなど、システム全体の「状態」を一手に管理するのが Pi5 の役割である。
+
+Pi4（Window A）は、ユーザーが実際に操作する UI と周辺機器のハブであり続ける。左ペインでは Pi4 に直結した NFC リーダーで工具の借用・返却を検知し、右ペインでは USB ハンディリーダーからの移動票スキャンで DocumentViewer を操作する。これらの操作はすべて Pi5 の API にプロキシされるため、Pi4 側に残るのは表示とデバイス制御のみとなる。Pi4 は Pi5 の DocumentViewer iframe を埋め込み、受け取った `dv-barcode` 通知を所在一覧の強調表示に接続する。
+
+Pi Zero 2 W のハンディ端末は Wi-Fi 経由で Pi5 の `/api/v1/scans` にスキャン結果を送信し、Pi5 からの Socket.IO ブロードキャストを通じて Pi4 UI の所在一覧や構内物流タブに反映される。Pi Zero は `mirrorctl` による 14 日連続監視の対象にもなり、Pi5 と合わせて可用性を保証する。
+
+この三層構造により、Pi5 は「状態とデータ」の集約点、Pi4 は「ユーザー操作と周辺デバイス」の集約点、Pi Zero は「現場スキャン入力」の集約点として役割分担が明確になった。今後のモジュール化は、Pi4 から Pi5 へ順次ロジックを移しつつも、現場のスキャン体験（NFC / ハンディ / Wi-Fi）が途切れないよう段階的に行う。
 
 ## 3. ステータス一覧
 
 | 機能領域 | 現状ステータス | 次アクション | 参照 |
 | --- | --- | --- | --- |
-| DocumentViewer 移行 | ⚙ 稼働中（Pi5 で `/viewer`・Socket.IO を提供） | 1. Window A の systemd drop-in / `.env` を Pi5 向けに確定（`SOCKET_STATUS_WATCHDOG`・トークン含む）<br>2. RUNBOOK と `docs/documentviewer-migration.md` へウォッチドッグ／PDF バインドマウント注意点を反映<br>3. Pi4・Pi5・DocumentViewer の 14 日連続可用性チェック手順を `docs/test-notes/` へ追加（2025-11-02: `docs/test-notes/2025-11-01-14day-check.md` に DocumentViewer 確認観点を追記） | `docs/documentviewer-migration.md`, `DocumentViewer/docs/test-notes/2025-10-26-viewer-check.md` |
-| 工具管理 UI クライアント化 | ⏳ 進行中（UI/REST プロキシ集約を設計） | 1. Window A の API 参照先を Pi5 へ統一し、旧サーバー経由コードを削除（2025-11-02: `/api/loans`・`register_*`・`tool_name` 系 API を RaspberryPiServer に実装し、Window A からのリクエストをプロキシ化）<br>2. クライアント専用品の systemd 定義と RUNBOOK を整理（`ENABLE_LOCAL_SCAN=0` を既定化し、Pi4 は UI 専用に転換）<br>3. Socket.IO / REST テストログを `docs/test-notes/` へ追記（2025-11-02 viewer highlight 実機検証を記録済） | Window A `docs/right-pane-plan.md`, `docs/implementation-plan.md` |
+| DocumentViewer 移行 | ⚙ 稼働中（Pi5 で `/viewer`・Socket.IO を提供） | 1. Window A の systemd drop-in / `.env` を Pi5 向けに確定（`SOCKET_STATUS_WATCHDOG`・トークン含む）<br>2. RUNBOOK と `docs/documentviewer-migration.md` へウォッチドッグ／PDF バインドマウント注意点を反映<br>3. Pi4・Pi5・DocumentViewer の 14 日連続可用性チェック手順を `docs/test-notes/` へ追加（2025-11-02: `docs/test-notes/2025-11-01-14day-check.md` に DocumentViewer 確認観点を追記）<br>4. DocumentViewer 内に所在サマリーを表示するステータスバーを実装し、要領書表示を妨げず所在情報を提示する | `docs/documentviewer-migration.md`, `DocumentViewer/docs/test-notes/2025-10-26-viewer-check.md` |
+| 工具管理 UI クライアント化 | ⏳ 進行中（UI/REST プロキシ集約を設計） | 1. Window A の API 参照先を Pi5 へ統一し、旧サーバー経由コードを削除（2025-11-02: `/api/loans`・`register_*`・`tool_name` 系 API を RaspberryPiServer に実装し、Window A からのリクエストをプロキシ化）<br>2. Pi4 で NFC スキャンを継続できるよう、`ENABLE_LOCAL_SCAN` を既定有効とした環境テンプレート・ドキュメント整備<br>3. Socket.IO / REST テストログを `docs/test-notes/` へ追記（2025-11-02 viewer highlight 実機検証を記録済） | Window A `docs/right-pane-plan.md`, `docs/implementation-plan.md` |
 | USB INGEST / DIST / BACKUP 集約 | ⏳ 設計中（スクリプト雛形あり） | 1. `docs/usb-operations.md` を RUNBOOK へ反映し、役割別 USB ラベル運用を確定<br>2. `udev` / systemd timer スクリプトを実装してテスト<br>3. Pi5↔Pi4 で DIST リハーサルを実施し証跡を `docs/test-notes/` へ残す | `docs/usb-operations.md`, `RUNBOOK.md` |
 | ミラー 14 日連続チェック | ▶ 準備中（`mirrorctl` CLI/Timer 実装済み） | 1. Pi Zero 実機へ `mirrorctl enable` を配備し、初期疎通を確認<br>2. `docs/templates/test-log-mirror-daily.md` を用いた記録サイクルを整備<br>3. 14 日分のログを収集後に判定会議へ提出 | `docs/mirror-verification.md`, `docs/templates/test-log-mirror-daily.md` |
 | 旧 Window A サーバー退役 | ⏸ 未着手 | 1. 退役対象サービスと依存を棚卸しし、RUNBOOK に停止手順を追記<br>2. ロールバック（Pi4 単独復帰）手順をテストノート化<br>3. 切替判定の意思決定記録を Decision Log へ追加 | `RUNBOOK.md`, `docs/archive/2025-10-26-client-cutover.md` |

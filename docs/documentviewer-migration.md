@@ -50,8 +50,9 @@
    - `/etc/default/docviewer` は DocumentViewer リポジトリの `config/docviewer.env.sample` をベースに作成し、`VIEWER_API_BASE` / `VIEWER_SOCKET_BASE` / `VIEWER_LOCAL_DOCS_DIR` / `VIEWER_LOG_PATH` などを設定する。
    - Window A サービスの systemd ドロップインは `tool-management-system02/config/systemd/toolmgmt.service.d/window-a.conf.sample` を使用し、`Environment=SOCKET_STATUS_WATCHDOG=1` / `Environment=TOOLMGMT_CLIENT_ROLE=window-a` を含める。`.env` 側 (`config/window-a-client.env.sample`) と値を一致させ、Pi5 の `API_TOKEN` / `VIEWER_API_TOKEN` と揃える。
    - API トークンを RaspberryPiServer 側に合わせて再発行し、環境変数 `VIEWER_API_TOKEN` を DocumentViewer フロント／tool-management-system02 双方で設定。
-   - `/etc/default/window-a-client` の `DATABASE_URL` を RaspberryPiServer の PostgreSQL（例: `postgresql://app:app_password@192.168.10.230:15432/appdb`）へ更新し、`RASPI_SERVER_API_TOKEN` を `/etc/default/raspi-server` の `API_TOKEN` と同じ値に揃える。更新後は `sudo systemctl restart toolmgmt.service` で反映する（サービス未登録時は `scripts/install_window_a_env.sh --with-dropin` を再実行）。
-   - DocumentViewer リポジトリ側で `VIEWER_SOCKET_*` 環境変数に対応し、`part_location_updated` 受信時に PDF を自動表示できるようにした（2025-10-26）。
+ - `/etc/default/window-a-client` の `DATABASE_URL` を RaspberryPiServer の PostgreSQL（例: `postgresql://app:app_password@192.168.10.230:15432/appdb`）へ更新し、`RASPI_SERVER_API_TOKEN` を `/etc/default/raspi-server` の `API_TOKEN` と同じ値に揃える。更新後は `sudo systemctl restart toolmgmt.service` で反映する（サービス未登録時は `scripts/install_window_a_env.sh --with-dropin` を再実行）。
+  - DocumentViewer リポジトリ側で `VIEWER_SOCKET_*` 環境変数に対応し、`part_location_updated` 受信時に PDF を自動表示できるようにした（2025-10-26）。
+  - DocumentViewer パネル上部に所在サマリーを表示するステータスバーを追加し、`dv-barcode` 受信時に棚位置・最終更新時刻をインラインで提示する。所在一覧へ遷移したい場合はステータスバーのアクションからタブ切替を行う。
 
 6. **データ移行**
    - 既存 PDF（Window A の `documents/`）を RaspberryPiServer の `/srv/rpi-server/documents` へ同期。
@@ -72,3 +73,4 @@
 - CORS 設定の詳細（許可するオリジン、認証ヘッダーの扱い）を最終決定。
 - DocumentViewer の UI を RaspberryPiServer 側でホストするか、Window A 側で引き続きホストするかの選択。前者は集約が容易、後者は無停止移行が簡単。
 - 自動テスト（API レスポンス、PDF 配信、CORS）を `docs/test-notes/2025-10-26-viewer-check.md` に追加し、将来の回帰を防ぐ。
+- 所在サマリーのステータスバー実装後、Pi4 UI での視認性と所在一覧タブへの遷移導線を確認し、必要に応じてレイアウトを調整する。
