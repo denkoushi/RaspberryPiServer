@@ -34,3 +34,7 @@ PLAYWRIGHT_ENV_FILE=.env.test npx playwright test tests/e2e/window-a-live.spec.t
 - 構内物流タブのシナリオでは API へ事前挿入したジョブが即時反映され、バッジ件数・テーブル内容も更新されたことを確認。
 - 今後は `.env.test` を適宜更新して各環境で再現できるようにし、CI などでライブシナリオを任意タイミングで実行可能。
 
+### 2025-11-02 2nd run
+- Window A ステータスバー UI を調整後に再実行。ボタンレイアウトの揺れなし、キーボード操作で所在一覧タブへ遷移できることを確認。
+- Playwright 実行結果: PASS（scan / logistics 両ケース）。
+
