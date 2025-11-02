@@ -48,8 +48,9 @@
    - DocumentViewer クライアント（Window A）を RaspberryPiServer の `/viewer` へ向けるか、Window A 側 Flask をクライアント専用に縮退させる。
    - `DOCUMENT_VIEWER_URL` を `http://raspi-server.local:8501/viewer` に更新。
    - `/etc/default/docviewer` は DocumentViewer リポジトリの `config/docviewer.env.sample` をベースに作成し、`VIEWER_API_BASE` / `VIEWER_SOCKET_BASE` / `VIEWER_LOCAL_DOCS_DIR` / `VIEWER_LOG_PATH` などを設定する。
-   - Window A サービスの systemd ドロップインは `tool-management-system02/config/systemd/toolmgmt.service.d/window-a.conf.sample` を使用し、`Environment=SOCKET_STATUS_WATCHDOG=1` / `Environment=TOOLMGMT_CLIENT_ROLE=window-a` を含める。`.env` 側 (`config/window-a-client.env.sample`) と値を一致させ、Pi5 の `API_TOKEN` / `VIEWER_API_TOKEN` と揃える。
-   - API トークンを RaspberryPiServer 側に合わせて再発行し、環境変数 `VIEWER_API_TOKEN` を DocumentViewer フロント／tool-management-system02 双方で設定。
+  - Window A サービスの systemd ドロップインは `tool-management-system02/config/systemd/toolmgmt.service.d/window-a.conf.sample` を使用し、`Environment=SOCKET_STATUS_WATCHDOG=1` / `Environment=TOOLMGMT_CLIENT_ROLE=window-a` を含める。`.env` 側 (`config/window-a-client.env.sample`) と値を一致させ、Pi5 の `API_TOKEN` / `VIEWER_API_TOKEN` と揃える。
+  - API トークンを RaspberryPiServer 側に合わせて再発行し、環境変数 `VIEWER_API_TOKEN` を DocumentViewer フロント／tool-management-system02 双方で設定。
+  - 2025-11-05: DocumentViewer UI (`viewer.html`) が `viewer-message` postMessage を送出し、Window A 右ペインのオーバーレイにエラー／情報メッセージを転送できるようにした。
  - `/etc/default/window-a-client` の `DATABASE_URL` を RaspberryPiServer の PostgreSQL（例: `postgresql://app:app_password@192.168.10.230:15432/appdb`）へ更新し、`RASPI_SERVER_API_TOKEN` を `/etc/default/raspi-server` の `API_TOKEN` と同じ値に揃える。更新後は `sudo systemctl restart toolmgmt.service` で反映する（サービス未登録時は `scripts/install_window_a_env.sh --with-dropin` を再実行）。
   - DocumentViewer リポジトリ側で `VIEWER_SOCKET_*` 環境変数に対応し、`part_location_updated` 受信時に PDF を自動表示できるようにした（2025-10-26）。
   - DocumentViewer パネル上部に所在サマリーを表示するステータスバーを追加し、`dv-barcode` 受信時に棚位置・最終更新時刻をインラインで提示する。所在一覧へ遷移したい場合はステータスバーのアクションからタブ切替を行う。

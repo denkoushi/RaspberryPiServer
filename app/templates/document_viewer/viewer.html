@@ -258,6 +258,12 @@
     function setMessage(text, isError = false) {
       message.textContent = text;
       message.classList.toggle("is-error", isError);
+      notifyParent({
+        type: "viewer-message",
+        level: isError ? "error" : "info",
+        text,
+        part: lastResult?.part || null,
+      });
     }
 
     form.addEventListener("submit", (event) => {
