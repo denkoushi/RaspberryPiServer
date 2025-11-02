@@ -54,6 +54,7 @@
  - `/etc/default/window-a-client` の `DATABASE_URL` を RaspberryPiServer の PostgreSQL（例: `postgresql://app:app_password@192.168.10.230:15432/appdb`）へ更新し、`RASPI_SERVER_API_TOKEN` を `/etc/default/raspi-server` の `API_TOKEN` と同じ値に揃える。更新後は `sudo systemctl restart toolmgmt.service` で反映する（サービス未登録時は `scripts/install_window_a_env.sh --with-dropin` を再実行）。
   - DocumentViewer リポジトリ側で `VIEWER_SOCKET_*` 環境変数に対応し、`part_location_updated` 受信時に PDF を自動表示できるようにした（2025-10-26）。
   - DocumentViewer パネル上部に所在サマリーを表示するステータスバーを追加し、`dv-barcode` 受信時に棚位置・最終更新時刻をインラインで提示する。所在一覧へ遷移したい場合はステータスバーのアクションからタブ切替を行う。
+  - 2025-11-05: RaspberryPiServer 側の `/viewer` に Playwright ライブテストと同じ DOM ID (`#docViewerOverlay`, `#docViewerSummary`) を実装し、Socket.IO → REST のハンドシェイクに合わせてオーバーレイ／サマリーを更新するように調整。
 
 6. **データ移行**
    - 既存 PDF（Window A の `documents/`）を RaspberryPiServer の `/srv/rpi-server/documents` へ同期。

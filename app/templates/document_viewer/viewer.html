@@ -125,14 +125,6 @@
       gap: 0.4rem;
     }
 
-    iframe {
-      width: 100%;
-      height: 78vh;
-      border: none;
-      border-radius: 16px;
-      background: rgba(15, 23, 42, 0.8);
-    }
-
     .message {
       margin-top: 1rem;
       font-size: 0.95rem;
@@ -141,6 +133,96 @@
 
     .message.is-error {
       color: var(--danger);
+    }
+
+    .viewer-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.8);
+      margin-bottom: 1rem;
+      min-height: 320px;
+    }
+
+    iframe {
+      width: 100%;
+      height: 78vh;
+      min-height: 420px;
+      border: none;
+      display: block;
+    }
+
+    #docViewerOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.9rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 1rem;
+      transition: opacity 0.2s ease;
+    }
+
+    #docViewerOverlay.is-hidden {
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .overlay-spinner {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      border: 4px solid rgba(14, 165, 233, 0.35);
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    #docViewerSummary {
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      padding: 1rem;
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    #docViewerSummary h2 {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin: 0;
+      font-weight: 500;
+    }
+
+    #docViewerSummary dl {
+      margin: 0;
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    #docViewerSummary dt {
+      font-size: 0.75rem;
+      color: rgba(148, 163, 184, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    #docViewerSummary dd {
+      margin: 0;
+      font-size: 0.95rem;
     }
   </style>
 </head>
@@ -166,7 +248,34 @@
       <p id="message" class="message">左側ペインでスキャンすると自動で表示が切り替わります。</p>
     </section>
     <section class="panel">
-      <iframe id="viewerFrame" title="PDF viewer"></iframe>
+      <div class="viewer-wrapper">
+        <iframe id="viewerFrame" title="PDF viewer"></iframe>
+        <div id="docViewerOverlay" class="is-hidden">
+          <span class="overlay-spinner" aria-hidden="true"></span>
+          <p id="docViewerOverlayMessage">待機中です。</p>
+        </div>
+      </div>
+      <div id="docViewerSummary">
+        <h2>最新のスキャン結果</h2>
+        <dl>
+          <div>
+            <dt>部品番号</dt>
+            <dd id="summaryPart">-</dd>
+          </div>
+          <div>
+            <dt>ロケーション</dt>
+            <dd id="summaryLocation">-</dd>
+          </div>
+          <div>
+            <dt>端末</dt>
+            <dd id="summaryDevice">-</dd>
+          </div>
+          <div>
+            <dt>スキャン時刻</dt>
+            <dd id="summaryScannedAt">-</dd>
+          </div>
+        </dl>
+      </div>
     </section>
 </main>
 
@@ -181,9 +290,17 @@
     const metaUpdated = document.getElementById("metaUpdated");
     const docStatus = document.getElementById("docStatus");
     const socketStatus = document.getElementById("socketStatus");
+    const overlay = document.getElementById("docViewerOverlay");
+    const overlayMessage = document.getElementById("docViewerOverlayMessage");
+    const overlaySpinner = overlay ? overlay.querySelector(".overlay-spinner") : null;
+    const summaryPart = document.getElementById("summaryPart");
+    const summaryLocation = document.getElementById("summaryLocation");
+    const summaryDevice = document.getElementById("summaryDevice");
+    const summaryScannedAt = document.getElementById("summaryScannedAt");
 
     let lastResult = null;
     let lastStation = null;
+    let lastScanEvent = null;
 
     const notifyParent = (payload) => {
       if (!window.parent) return;
@@ -203,6 +320,45 @@
       });
     };
 
+    const hideOverlay = () => {
+      if (!overlay) return;
+      overlay.classList.add("is-hidden");
+      if (overlaySpinner) {
+        overlaySpinner.style.display = "inline-block";
+      }
+    };
+
+    const showOverlay = (text, { showSpinner = true } = {}) => {
+      if (!overlay) return;
+      if (overlayMessage) {
+        overlayMessage.textContent = text;
+      }
+      overlay.classList.remove("is-hidden");
+      if (overlaySpinner) {
+        overlaySpinner.style.display = showSpinner ? "inline-block" : "none";
+      }
+    };
+
+    const resetSummary = () => {
+      summaryPart.textContent = "-";
+      summaryLocation.textContent = "-";
+      summaryDevice.textContent = "-";
+      summaryScannedAt.textContent = "-";
+    };
+
+    const updateSummary = (payload) => {
+      if (!payload) {
+        resetSummary();
+        return;
+      }
+      summaryPart.textContent = payload.order_code || payload.part || "-";
+      summaryLocation.textContent = payload.location_code || "-";
+      summaryDevice.textContent = payload.device_id || "-";
+      summaryScannedAt.textContent = payload.scanned_at
+        ? new Date(payload.scanned_at).toLocaleString()
+        : "-";
+    };
+
     async function fetchDocument(partNumber) {
       if (!partNumber) {
         setMessage("部品番号を入力してください。", true);
@@ -212,6 +368,7 @@
       setMessage("検索中…", false);
       docStatus.textContent = "状態: 取得中";
       updateViewerState("searching", partNumber);
+      showOverlay("PDF を読み込み中です…");
 
       try {
         const url = `${CONFIG.api_base}/${encodeURIComponent(partNumber)}`;
@@ -227,6 +384,9 @@
           docStatus.textContent = "状態: 見つからない";
           frame.src = "";
           updateViewerState("error", partNumber);
+          showOverlay("PDF が見つかりません。USB 取り込みとファイル名をご確認ください。", {
+            showSpinner: false,
+          });
           return;
         }
 
@@ -243,6 +403,10 @@
         docStatus.textContent = "状態: 表示中";
         setMessage(`表示中: ${data.filename}`, false);
         updateViewerState("viewer", partNumber);
+        hideOverlay();
+        if (lastScanEvent) {
+          updateSummary(lastScanEvent);
+        }
         notifyParent({
           type: "dv-barcode",
           part: partNumber,
@@ -252,6 +416,9 @@
         setMessage("サーバーへの接続に失敗しました。ネットワークとログをご確認ください。", true);
         docStatus.textContent = "状態: エラー";
         updateViewerState("error", partNumber);
+        showOverlay("サーバーへの接続に失敗しました。ネットワークとログをご確認ください。", {
+          showSpinner: false,
+        });
       }
     }
 
@@ -279,15 +446,26 @@
           socketStatus.textContent = "● LIVE";
           socketStatus.classList.remove("is-offline");
           socketStatus.classList.add("is-live");
+          if (
+            overlay &&
+            !overlay.classList.contains("is-hidden") &&
+            overlayMessage.textContent.includes("Socket.IO")
+          ) {
+            hideOverlay();
+          }
         });
         socket.on("disconnect", () => {
           socketStatus.textContent = "● OFFLINE";
           socketStatus.classList.add("is-offline");
           socketStatus.classList.remove("is-live");
+          showOverlay("Socket.IO に接続できません。再接続を待機しています…");
         });
 
         socket.on("part_location_updated", (payload) => {
           if (payload && payload.order_code) {
+            lastScanEvent = payload;
+            updateSummary(payload);
+            showOverlay("PDF を読み込み中です…");
             fetchDocument(payload.order_code);
           }
         });
@@ -296,12 +474,18 @@
         socketStatus.textContent = "● OFFLINE";
         socketStatus.classList.add("is-offline");
         setMessage("Socket.IO に接続できませんでした。REST ポーリングのみで動作します。", true);
+        showOverlay("Socket.IO に接続できませんでした。REST ポーリングのみで動作します。", {
+          showSpinner: false,
+        });
       }
     } else {
       console.warn("Socket.IO クライアントが読み込めませんでした。");
       socketStatus.textContent = "● OFFLINE";
       socketStatus.classList.add("is-offline");
       setMessage("Socket.IO が読み込めなかったため、REST ポーリングのみで動作します。", true);
+      showOverlay("Socket.IO が読み込めなかったため、REST ポーリングのみで動作します。", {
+        showSpinner: false,
+      });
     }
 
     // クエリパラメータで part を指定できるようにする
@@ -312,6 +496,7 @@
       fetchDocument(initialPart);
     } else {
       updateViewerState("idle");
+      hideOverlay();
     }
 
     window.addEventListener("message", (event) => {
@@ -337,9 +522,11 @@
         frame.src = "";
         metaPart.textContent = "-";
         metaUpdated.textContent = "-";
+        resetSummary();
         setMessage("待機中です。部品番号を入力してください。", false);
         docStatus.textContent = "状態: 待機中";
         updateViewerState("idle");
+        showOverlay("待機中です。部品番号を入力してください。", { showSpinner: false });
       }
     });
   </script>
