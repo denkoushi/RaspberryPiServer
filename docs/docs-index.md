@@ -10,6 +10,7 @@ RaspberryPiServer リポジトリのドキュメント配置と役割を一覧�
 | 概要 | `CHANGELOG.md` | 適用済み変更履歴 | リリース・本番反映時 | ✅ 2025-10-31 |
 | 運用 | `RUNBOOK.md` | サービス再起動、デプロイ、トラブルシュート | 新しい運用手順が確定したとき | ✅ 2025-10-31 |
 | 要件/計画 | `docs/requirements.md` | 要件・決定事項・未完タスク | 合意事項や優先度が変わったとき | ✅ 2025-11-02 |
+| 要件/計画 | `docs/requirements/window-a-statusbar.md` | Window A ステータスバー改修要件 | UI 改修の設計・実装前 | ✅ 2025-11-02 |
 | 要件/計画 | `docs/implementation-plan.md` | リポジトリ別ロードマップ | マイルストーン更新時 | ✅ 2025-10-31 |
 | 要件/計画 | `docs/documentviewer-migration.md` | DocumentViewer 移行計画 | 移行ステータス更新時 | ✅ 2025-10-31 |
 | 要件/計画 | `docs/api-plan.md` | REST / Socket.IO API の仕様整理 | エンドポイント変更時 | ✅ 2025-10-31 |
