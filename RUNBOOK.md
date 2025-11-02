@@ -82,6 +82,13 @@ sudo systemctl enable --now mirror-compare.timer
 sudo udevadm control --reload
 sudo udevadm trigger
 ```
+- `/etc/default/raspi-server` を config/raspi-server.env.sample から作成し、以下を必ず揃える。
+  - `API_TOKEN` / `VIEWER_API_TOKEN`: Window A (`/etc/toolmgmt/window-a-client.env`) と DocumentViewer フロントと同じ値を設定（2025-11-02 時点: `raspi-token-20251027`）。
+  - `VIEWER_DOCS_DIR` / `VIEWER_LOG_PATH`: 既定値（`/srv/rpi-server/documents` / `/srv/rpi-server/logs/document_viewer.log`）を利用し、Docker bind mount の有効性を確認。
+  - `VIEWER_CORS_ORIGINS` / `SOCKETIO_CORS_ORIGINS`: Window A の実ホスト名（例: `http://raspi-window-a.local:8501`）。
+  - `SOCKET_STATUS_WATCHDOG=1`: Window A 側で再接続表示を維持するため既定で有効化。
+- 値を変更した場合は `sudo systemctl restart raspi-server.service` を実行し、`journalctl -u raspi-server.service -n 50` で再起動に失敗していないか確認する。
+
 ### 3.3 スクリプト配置
 
 > 自動セットアップを利用した場合はこの手順は不要。

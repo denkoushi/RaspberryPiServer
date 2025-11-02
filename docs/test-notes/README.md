@@ -27,6 +27,8 @@
 - `2025-10-26-socketio-verification.md` — Socket.IO 検証ログ
 - `2025-10-26-viewer-check.md` — DocumentViewer 接続方針と検証
 - `2025-10-30-end-to-end.md` — Pi4 → Pi5 → DocumentViewer の E2E テスト
+- `2025-11-02-viewer-highlight.md` — Pi4 実機での viewer highlight ハンドリング検証ログ
+- `2025-11-02-window-a-live-playwright.md` — Pi4 実機での Playwright ライブシナリオ（スキャン→所在サマリー→物流更新）成功ログ
 - `2025-11-01-14day-check.md` — 14 日間ミラーチェック記録（書式のみ、実施時に追記）
 
 ## 更新時の注意

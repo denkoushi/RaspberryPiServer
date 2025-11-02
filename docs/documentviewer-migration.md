@@ -59,8 +59,9 @@
    - USB / git 管理されている PDF 更新手順を RUNBOOK に追記し、DocumentViewer が常に RaspberryPiServer 上の最新ファイルを参照するようにする（ログ確認項目を含む）。
 
 7. **検証手順**
-   - 手動テスト: Pi Zero からの送信 → DocumentViewer で表示 → USB DIST で PDF が更新される流れを確認。
-   - 14 日チェック: DocumentViewer 連携が問題なく稼働することを `docs/test-notes/2025-11-01-14day-check.md` や Window A 側の日次記録に追加し、`dv-barcode` → 所在一覧ハイライトの結果を `docs/test-notes/2025-11-02-viewer-highlight.md` に追記する。
+ - 手動テスト: Pi Zero からの送信 → DocumentViewer で表示 → USB DIST で PDF が更新される流れを確認。
+ - 14 日チェック: DocumentViewer 連携が問題なく稼働することを `docs/test-notes/2025-11-01-14day-check.md` や Window A 側の日次記録に追加し、`dv-barcode` → 所在一覧ハイライトの結果を `docs/test-notes/2025-11-02-viewer-highlight.md` に追記する。
+  - 2025-11-02: Window A 実機で Playwright ライブシナリオ（`tests/e2e/window-a-live.spec.ts`）を実行し、スキャン→所在サマリー→構内物流更新の自動検証が成功（記録: `docs/test-notes/2025-11-02-window-a-live-playwright.md`）。
 
 8. **運用上の注意**
    - Pi5 停止中は Socket.IO が再接続中状態になるため、Window A 側ウォッチドッグ (`SOCKET_STATUS_WATCHDOG=1`) を既定値で有効化し、「再接続中…」表示を維持する。無効化した場合は OFFLINE 表示へ降格するため、障害調査時以外は変更しない。

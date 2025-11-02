@@ -98,7 +98,7 @@
 - `tools/e2e-sync/validate_sync_flow.py`（新規）: 各端末へ SSH / HTTP 要求を発行し、下記ステップを実行。
   1. テスト用 TM-INGEST イメージをマウントし、`tool-ingest-sync.sh` を Pi5 上で実行。ログ (`usb_ingest.log`) に成功と `plan cache refresh` が記録されることを確認。
   2. Pi5 の REST API (`/api/v1/production-plan`, `/api/v1/part-locations`) をクエリし、タイムスタンプが更新されたことを確認。
-  3. Window A に対して Selenium (Chromium) あるいは Playwright を用い、Socket.IO ステータスが `LIVE` に遷移し右ペインが自動更新されることを検証。
+3. Window A に対して Selenium (Chromium) あるいは Playwright を用い、Socket.IO ステータスが `LIVE` に遷移し右ペインが自動更新されることを検証。（2025-11-02: Pi4 実機上で Playwright ライブシナリオ `tests/e2e/window-a-live.spec.ts` が成功し、所在サマリー・構内物流タブの自動更新を確認済み）
   4. Pi Zero へ `ssh handheld@pi-zero 'mirrorctl send-test --part testpart'` のようなテストコマンドを送信し、`/api/v1/scans` が 201 を返し、Window A の所在一覧に反映されるか確認。
   5. 各ステップのログ（API レスポンス、Socket.IO イベント、UI スクリーンショット）を `docs/test-notes/YYYY-MM-DD-sync-e2e.md` に追記。
 - systemd timer `e2e-sync-check.timer` を Pi5 に配置し、日次午前帯にリハーサルを自動実行。結果は Slack / ログ監視に通知。
@@ -107,7 +107,7 @@
 **必要実装**
 - Python ラッパで Pi Zero・Window A への SSH 実行を標準化（鍵管理／認証情報は `/etc/toolmgmt/e2e-sync.env` に保存）。
 - Socket.IO リスナー（Python or Node）を用意し、イベント受信状況を判定。
-- Playwright/Selenium を用いる場合、Window A 上の kiosk ブラウザに影響しないヘッドレス実行方法を検討（別コンテナ or 仮想ディスプレイ）。
+- Playwright/Selenium を用いる場合、Window A 上の kiosk ブラウザに影響しないヘッドレス実行方法を検討（別コンテナ or 仮想ディスプレイ）。Playwright では `.env.test` を介してヘッドレス Chromium を Pi4 上で実行し、動画/trace を保存する運用を採用。
 
 **ドキュメント**
 - `docs/test-notes/e2e-sync-template.md`（新規）に記録テンプレートを用意。
