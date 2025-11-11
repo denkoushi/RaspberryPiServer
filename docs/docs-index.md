@@ -15,6 +15,7 @@ RaspberryPiServer リポジトリのドキュメント配置と役割を一覧�
 | 要件/計画 | `docs/implementation-plan.md` | リポジトリ別ロードマップ | マイルストーン更新時 | ✅ 2025-10-31 |
 | 要件/計画 | `docs/documentviewer-migration.md` | DocumentViewer 移行計画 | 移行ステータス更新時 | ✅ 2025-11-05（viewer-message postMessage 対応を追記） |
 | 要件/計画 | `docs/api-plan.md` | REST / Socket.IO API の仕様整理 | エンドポイント変更時 | ✅ 2025-10-31 |
+| 要件/計画 | `docs/window-a-recovery-plan.md` | Window A DocumentViewer 復旧計画 | 右ペイン不具合の復旧手順を更新するとき | ✅ 2025-11-02 |
 | ミラー運用 | `docs/mirror-verification.md` | 14 日検証手順 | 手順変更時 | ✅ 2025-10-31 |
 | ミラー運用 | `docs/mirrorctl-spec.md` | `mirrorctl`/`mirror_compare` の仕様 | CLI 仕様更新時 | ✅ 2025-10-31 |
 | 運用補助 | `docs/usb-operations.md` | USB メディア運用手順 | 運用変更時 | ✅ 2025-10-31 |
